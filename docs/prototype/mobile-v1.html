@@ -1,0 +1,1447 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Coffer · 移动端交互原型 v1</title>
+<link rel="icon" type="image/png" href="../icon-v1.png" />
+<style>
+  :root{
+    --ink:#1E1C19;--ink-2:#56524A;--muted:#948E82;
+    --line:#E3DFD4;--line-soft:#EDEAE1;
+    --accent:#125B4A;--accent-soft:#E3EFEA;--brass:#AE8850;--bg:#E7E4DB;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:16px;padding:28px 16px;
+  }
+  .hint{font-size:11.5px;color:#8A8478;letter-spacing:.04em;}
+  .hint b{color:var(--accent);font-weight:600;}
+
+  .phone{
+    width:390px;height:844px;flex:none;position:relative;background:#fff;
+    border-radius:42px;overflow:hidden;
+    box-shadow:0 0 0 1px rgba(30,28,25,.10), 0 2px 4px rgba(30,28,25,.06), 0 40px 70px -30px rgba(30,28,25,.42);
+  }
+  .statusbar{height:46px;display:flex;align-items:center;flex:none;padding:0 26px 0 30px;font-size:13px;font-weight:650;position:relative;z-index:5;background:#fff;}
+  .sb-icons{margin-left:auto;display:flex;align-items:center;gap:5px;}
+  .notch{position:absolute;left:50%;top:9px;transform:translateX(-50%);width:104px;height:26px;border-radius:16px;background:#141312;}
+
+  .host{position:relative;height:calc(100% - 46px);}
+  .screen{
+    position:absolute;inset:0;display:flex;flex-direction:column;background:#fff;
+    opacity:0;transform:translateX(26px);pointer-events:none;
+    transition:opacity .22s ease, transform .26s cubic-bezier(.32,.72,0,1);overflow:hidden;
+  }
+  .screen.on{opacity:1;transform:none;pointer-events:auto;}
+  .screen.out{transform:translateX(-22px);}
+
+  .nav{height:46px;flex:none;display:flex;align-items:center;padding:0 18px;gap:10px;position:relative;}
+  .nav .ttl{font-size:15px;font-weight:650;}
+  .nav .right{margin-left:auto;display:flex;align-items:center;gap:16px;color:var(--ink-2);}
+  .icon-btn{background:none;border:0;padding:0;display:grid;place-items:center;color:inherit;cursor:pointer;}
+  .icon-btn:active{opacity:.5;}
+  .nav .act{font-size:13.5px;color:var(--accent);font-weight:600;background:none;border:0;cursor:pointer;padding:0;}
+  .nav .act.dim{color:var(--muted);font-weight:500;}
+  .nav .ctr{position:absolute;left:50%;transform:translateX(-50%);font-size:15px;font-weight:650;}
+  .ttl-btn{background:none;border:0;padding:0;font:inherit;font-size:15px;font-weight:650;color:var(--ink);display:flex;align-items:center;gap:4px;cursor:pointer;max-width:190px;}
+  .ttl-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ttl-btn svg{color:var(--muted);flex:none;}
+
+  .search{margin:4px 18px 10px;height:38px;flex:none;background:#F4F2EB;border-radius:10px;display:flex;align-items:center;gap:8px;padding:0 11px;}
+  .search svg{color:var(--muted);flex:none;}
+  .search input{border:0;background:none;outline:0;font:inherit;font-size:13.5px;width:100%;color:var(--ink);}
+  .search input::placeholder{color:#A29C90;}
+
+  .chips{display:flex;gap:7px;padding:0 18px 12px;flex:none;}
+  .chip{font-size:12.5px;color:var(--ink-2);padding:6px 12px;border-radius:100px;background:#F4F2EB;border:0;white-space:nowrap;font-family:inherit;cursor:pointer;}
+  .chip.on{background:var(--accent);color:#fff;font-weight:600;}
+  .sec-lbl{font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);font-weight:650;padding:0 18px 7px;flex:none;}
+
+  .list{flex:1;overflow-y:auto;padding:0 10px 14px;}
+  .list::-webkit-scrollbar{width:0;}
+  .item{display:flex;align-items:center;gap:12px;padding:11px 8px;border-radius:11px;width:100%;background:none;border:0;font-family:inherit;text-align:left;cursor:pointer;}
+  .item:active{background:#F6F4ED;}
+  .item + .item{border-top:1px solid var(--line-soft);}
+  .tile{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:13px;font-weight:700;}
+  .item-txt{flex:1;min-width:0;line-height:1.35;}
+  .item-txt b{font-size:14px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .item-txt span{font-size:11.5px;color:var(--muted);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chev{color:#CFC9BB;flex:none;}
+  .empty{text-align:center;color:var(--muted);font-size:12.5px;padding:44px 20px;line-height:1.7;}
+
+  .fab{position:absolute;right:20px;bottom:92px;width:50px;height:50px;border-radius:16px;background:var(--accent);color:#fff;border:0;display:grid;place-items:center;box-shadow:0 6px 16px -4px rgba(18,91,74,.5);cursor:pointer;z-index:3;}
+  .fab:active{transform:scale(.94);}
+
+  .tabbar{flex:none;height:74px;border-top:1px solid var(--line-soft);display:flex;align-items:flex-start;padding:9px 6px 0;background:#fff;position:relative;}
+  .tabbar .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:#A29C90;background:none;border:0;font-family:inherit;cursor:pointer;}
+  .tabbar .tb.on{color:var(--accent);font-weight:600;}
+  .home-bar{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);width:134px;height:5px;border-radius:3px;background:#1E1C19;opacity:.85;}
+
+  .hero{padding:4px 18px 18px;text-align:center;flex:none;border-bottom:1px solid var(--line-soft);}
+  .hero .tile{margin:0 auto 10px;width:54px;height:54px;border-radius:15px;font-size:19px;}
+  .hero h2{font-size:17.5px;font-weight:650;user-select:none;}
+  .hero .sub{display:flex;align-items:center;justify-content:center;gap:6px;margin-top:7px;}
+  .tag{font-size:10.5px;font-weight:600;letter-spacing:.05em;color:var(--accent);background:var(--accent-soft);padding:2.5px 7px;border-radius:5px;}
+  .hero .sub em{font-style:normal;font-size:11.5px;color:var(--muted);}
+  .dot{width:3px;height:3px;border-radius:50%;background:#CFC9BB;}
+
+  .dbody{flex:1;overflow-y:auto;padding:4px 18px 18px;}
+  .dbody::-webkit-scrollbar{width:0;}
+
+  /* ---- 详情二次验证 ---- */
+  .dlocked{display:flex;flex-direction:column;align-items:center;text-align:center;padding:32px 24px 16px;}
+  .dlocked .seal{width:50px;height:50px;border-radius:50%;background:linear-gradient(160deg,#F7F4EB,#E9E2D2);border:1px solid #E2DAC8;display:grid;place-items:center;color:var(--brass);margin-bottom:14px;}
+  .dlocked h4{font-size:13.5px;font-weight:650;}
+  .dlocked p{font-size:12px;color:var(--muted);line-height:1.7;margin-top:7px;}
+  .dlocked .go{margin-top:16px;height:40px;padding:0 20px;border-radius:11px;background:var(--accent);color:#fff;border:0;font:inherit;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;box-shadow:0 1px 2px rgba(18,91,74,.24);}
+  .dlocked .go:active{background:#0E4E3F;}
+  .dlocked .hintline{margin-top:10px;font-size:10.5px;color:#B6AFA2;}
+  .blur-rows{width:100%;margin-top:22px;display:flex;flex-direction:column;gap:12px;opacity:.9;}
+  .blur-rows i{height:9px;border-radius:5px;background:#EDE8DC;display:block;}
+  .blur-rows i:nth-child(1){width:100%;}
+  .blur-rows i:nth-child(2){width:62%;}
+  .blur-rows i:nth-child(3){width:84%;}
+  .blur-rows i:nth-child(4){width:44%;}
+  .vf-input{width:100%;height:44px;border-radius:11px;border:1px solid var(--line);background:#FBFAF5;padding:0 13px;font:inherit;font-size:14px;color:var(--ink);outline:0;}
+  .vf-input:focus{border-color:var(--accent);background:#fff;}
+  .ascreen{background:#FBF9F3;}
+  .ahero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:74px 28px 6px;}
+  .ahero .amark{width:56px;height:56px;border-radius:16px;display:grid;place-items:center;margin-bottom:16px;box-shadow:0 6px 16px -6px rgba(18,91,74,.5);}
+  .ahero h2{font-size:19px;font-weight:700;color:var(--ink);}
+  .ahero p{font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.6;}
+  .abody{padding:22px 26px 0;}
+  .alb{display:block;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:14px 1px 6px;}
+  .a-strength{font-size:11px;margin-top:6px;height:14px;}
+  .a-ack{display:flex;gap:9px;align-items:flex-start;margin-top:16px;font-size:11.5px;color:var(--ink-2);line-height:1.55;cursor:pointer;}
+  .a-ack input{margin-top:2px;width:15px;height:15px;accent-color:var(--accent);flex:none;}
+  .a-btn{margin-top:20px;width:100%;height:46px;border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-size:14px;font-weight:600;cursor:pointer;box-shadow:0 4px 12px -4px rgba(18,91,74,.42);}
+  .a-btn:active{transform:scale(.99);opacity:.92;}
+  .a-link{margin-top:15px;width:100%;background:none;border:0;font:inherit;font-size:12.5px;color:var(--accent);cursor:pointer;}
+  .a-note{margin-top:16px;text-align:center;font-size:10.5px;color:#B6AFA2;}
+  .swrow{display:flex;gap:10px;flex-wrap:wrap;}
+  .sw{width:22px;height:22px;border-radius:50%;border:0;padding:0;cursor:pointer;flex:none;}
+  .sw.on{box-shadow:0 0 0 2px #fff,0 0 0 3.5px var(--c);}
+  .clabel{font-size:11px;color:#B6AFA2;margin-top:16px;}
+
+  .drow{display:flex;align-items:center;gap:10px;padding:14px 0;border-bottom:1px solid var(--line-soft);}
+  .drow:last-child{border-bottom:0;}
+  .drow .lb{width:78px;flex:none;font-size:12px;color:var(--muted);white-space:nowrap;}
+  .drow .vl{flex:1;min-width:0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .drow .vl.mono{font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.02em;}
+  .drow .vl.link{color:var(--accent);}
+  .drow .tl{display:flex;gap:6px;flex:none;color:#A9A398;}
+  .drow .tl button{background:none;border:0;padding:0;color:inherit;display:grid;place-items:center;cursor:pointer;}
+  .drow .tl button:active{color:var(--accent);}
+
+  .dsec{margin-top:16px;}  .dsec-h{display:flex;align-items:center;gap:7px;margin-bottom:10px;}
+  .dsec-h span{font-size:11.5px;font-weight:650;letter-spacing:.04em;color:var(--ink-2);}
+  .dsec-h em{font-style:normal;font-size:10.5px;color:var(--muted);background:#F4F1E9;padding:1.5px 6px;border-radius:5px;}
+  .thumbs{display:flex;gap:10px;flex-wrap:wrap;}
+  .thumb{width:104px;height:76px;border-radius:9px;overflow:hidden;border:1px solid var(--line);position:relative;flex:none;background:#F6F3EB;padding:0;cursor:pointer;}
+  .thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+  .thumb .cap{position:absolute;left:0;right:0;bottom:0;color:#fff;font-size:9.5px;padding:12px 6px 4px;background:linear-gradient(transparent,rgba(20,18,14,.72));white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;}
+
+  .dbottom{flex:none;padding:12px 18px 28px;border-top:1px solid var(--line-soft);display:flex;gap:10px;background:#fff;}
+  .dbottom.solo{justify-content:flex-end;}
+  .btn-primary{flex:1;height:46px;border:0;border-radius:12px;background:var(--accent);color:#fff;font:inherit;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:7px;box-shadow:0 4px 12px -4px rgba(18,91,74,.42);cursor:pointer;}
+  .btn-primary:active{transform:scale(.99);opacity:.92;}
+  .btn-square{width:46px;height:46px;flex:none;border-radius:12px;background:#F4F2EB;color:var(--ink-2);border:0;display:grid;place-items:center;cursor:pointer;}
+  .btn-square.on{background:#FBEFF0;color:#A84A55;}
+
+  .form{flex:1;overflow-y:auto;padding:2px 18px 24px;}
+  .form::-webkit-scrollbar{width:0;}
+  .type-row{display:flex;gap:8px;margin:4px 0 18px;}
+  .type{flex:1;padding:11px 6px;border-radius:11px;background:#F7F5EF;border:1px solid transparent;display:flex;flex-direction:column;align-items:center;gap:5px;font-size:11.5px;color:var(--ink-2);font-family:inherit;cursor:pointer;}
+  .type.on{background:var(--accent-soft);border-color:#BBD5CB;color:var(--accent);font-weight:600;}
+
+  .f{margin-bottom:15px;}
+  .f label{display:block;font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px;font-weight:600;}
+  .f input,.f textarea{width:100%;border-radius:10px;border:1px solid var(--line);padding:11px 12px;font:inherit;font-size:13.5px;color:var(--ink);background:#fff;outline:0;display:block;min-height:44px;}
+  .f input::placeholder,.f textarea::placeholder{color:#B6AFA2;}
+  .f input:focus,.f textarea:focus{border-color:#9CC0B3;box-shadow:0 0 0 3px rgba(18,91,74,.07);}
+  .f textarea{resize:none;line-height:1.6;min-height:96px;}
+  .f .row{display:flex;gap:8px;}
+  .f .row input{flex:1;}
+  .f .mini{flex:none;height:44px;padding:0 13px;border-radius:10px;border:1px solid var(--line);background:#F7F5EF;color:var(--accent);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;}
+  .f .hint{font-size:10.5px;color:var(--muted);margin-top:6px;}
+
+  .upload{width:100%;border:1px dashed #D5CFC0;border-radius:11px;background:#FCFBF7;padding:20px 12px;display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--muted);font-size:12px;font-family:inherit;cursor:pointer;}
+  .upload:active{border-color:var(--accent);color:var(--accent);}
+  .upload b{font-size:12px;color:var(--ink-2);font-weight:600;}
+  .upload i{font-style:normal;font-size:10.5px;color:#B6AFA2;}
+  .picked{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+  .picked .p{width:64px;height:48px;border-radius:8px;overflow:hidden;border:1px solid var(--line);}
+  .picked .p img{width:100%;height:100%;object-fit:cover;display:block;}
+
+  .folder-row{display:flex;align-items:center;gap:9px;height:44px;border-radius:10px;border:1px solid var(--line);padding:0 12px;font-size:13.5px;background:#fff;width:100%;font-family:inherit;cursor:pointer;text-align:left;color:var(--ink);}
+  .folder-row .pin{width:6px;height:6px;border-radius:50%;background:#C9752F;}
+  .folder-row .chev{margin-left:auto;}
+
+  .me-head{padding:8px 18px 20px;text-align:center;border-bottom:1px solid var(--line-soft);flex:none;}
+  #me-head{cursor:pointer;}
+  #me-head:active{opacity:.7;}
+  .me-head .avatar{width:60px;height:60px;border-radius:50%;background:#DCD5C6;color:#5A5348;display:grid;place-items:center;font-size:19px;font-weight:650;margin:0 auto 10px;cursor:pointer;}
+  .f input[readonly]{background:#F7F5EF;color:#948E82;}
+  .rm-link{background:none;border:0;padding:0;font:inherit;font-size:13px;color:#A84A55;cursor:pointer;}
+  .me-head h3{font-size:16px;font-weight:650;}
+  .me-head p{font-size:11.5px;color:var(--muted);margin-top:4px;}
+  .me-list{padding:8px 18px;}
+  .me-row{display:flex;align-items:center;gap:11px;padding:15px 0;border-bottom:1px solid var(--line-soft);width:100%;background:none;border-left:0;border-right:0;border-top:0;font-family:inherit;font-size:13.5px;color:var(--ink);cursor:pointer;text-align:left;}
+  .me-row svg{color:#A9A398;flex:none;}
+  .me-row .chev{margin-left:auto;}
+  /* 退出登录：独立描边按钮，不做成列表行 */
+  .me-logout{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;height:46px;background:#fff;border:1px solid #E4C6CA;border-radius:12px;color:#A84A55;font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
+  .me-logout svg{color:#A84A55;flex:none;}
+  .me-logout:active{background:#FBF0F1;border-color:#D5A2A9;}
+
+  .toast{position:absolute;left:50%;bottom:104px;transform:translate(-50%,10px);background:rgba(24,22,19,.92);color:#fff;font-size:12.5px;padding:9px 15px;border-radius:10px;opacity:0;pointer-events:none;transition:opacity .2s, transform .2s;z-index:50;white-space:nowrap;}
+  .toast.on{opacity:1;transform:translate(-50%,0);}
+
+  .lock{position:absolute;inset:0;z-index:40;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:0 34px;background:#123F35;background-image:radial-gradient(ellipse at 50% 18%, rgba(174,136,80,.20), transparent 62%);opacity:0;pointer-events:none;transition:opacity .25s;}
+  .lock.on{opacity:1;pointer-events:auto;}
+  .lock .mark{width:52px;height:52px;border-radius:15px;background:rgba(255,255,255,.10);display:grid;place-items:center;margin-bottom:2px;}
+  .lock h3{color:#fff;font-size:17px;font-weight:650;}
+  .lock p{color:rgba(255,255,255,.6);font-size:12px;margin-top:-6px;margin-bottom:10px;}
+  .lock input{width:100%;height:46px;border-radius:12px;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.07);color:#fff;font:inherit;font-size:14px;padding:0 14px;outline:0;text-align:center;letter-spacing:.22em;}
+  .lock input::placeholder{color:rgba(255,255,255,.34);letter-spacing:.06em;}
+  .lock button{width:100%;height:46px;border-radius:12px;border:0;background:#EBD9B4;color:#123F35;font:inherit;font-size:14px;font-weight:650;cursor:pointer;}
+
+  .viewer{position:absolute;inset:0;background:rgba(18,16,14,.94);z-index:35;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px 24px;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .viewer.on{opacity:1;pointer-events:auto;}
+  .viewer img{max-width:100%;max-height:70%;border-radius:10px;box-shadow:0 20px 40px rgba(0,0,0,.4);}
+  .viewer .vc{color:rgba(255,255,255,.82);font-size:12.5px;}
+  .viewer .vclose{position:absolute;top:52px;right:22px;background:rgba(255,255,255,.12);border:0;color:#fff;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;cursor:pointer;}
+
+  .sheet{position:absolute;inset:0;background:rgba(20,18,15,.4);z-index:36;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .2s;}
+  .sheet.on{opacity:1;pointer-events:auto;}
+  .sheet .card{width:100%;background:#fff;border-radius:20px 20px 0 0;padding:22px 20px 30px;transform:translateY(14px);transition:transform .24s cubic-bezier(.32,.72,0,1);}
+  .sheet.on .card{transform:none;}
+  .sheet h4{font-size:15px;font-weight:650;margin-bottom:6px;}
+  .sheet p{font-size:12.5px;color:var(--muted);line-height:1.6;margin-bottom:18px;}
+  .sheet .acts{display:flex;gap:10px;}
+  .sheet .acts button{flex:1;height:44px;border-radius:11px;border:1px solid var(--line);background:#fff;font:inherit;font-size:13.5px;cursor:pointer;color:var(--ink);}
+  .sheet .acts .del{background:#A84A55;border-color:#A84A55;color:#fff;font-weight:600;}
+  .sheet .acts .ok{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .sheet .acts.col{flex-direction:column;gap:8px;}
+  .sheet .acts.col .quiet{border:0;color:var(--muted);}
+  .sheet input{width:100%;height:46px;border-radius:11px;border:1px solid var(--line);padding:0 13px;font:inherit;font-size:14px;color:var(--ink);outline:0;background:#fff;}
+  .sheet input:focus{border-color:#9CC0B3;box-shadow:0 0 0 3px rgba(18,91,74,.07);}
+
+  .sheet-list{margin:2px -4px 4px;max-height:46vh;overflow-y:auto;}
+  .sheet-list::-webkit-scrollbar{width:0;}
+  .opt{display:flex;align-items:center;gap:10px;width:100%;padding:13px 4px;border:0;border-bottom:1px solid var(--line-soft);background:none;font-family:inherit;font-size:13.5px;color:var(--ink);text-align:left;cursor:pointer;}
+  .opt:last-child{border-bottom:0;}
+  .opt .fdot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .opt .n{margin-left:auto;font-size:11.5px;color:var(--muted);}
+  .opt.sel{color:var(--accent);font-weight:600;}
+  .opt .tick{color:var(--accent);flex:none;}
+  .opt.newf{color:var(--accent);font-weight:600;justify-content:center;gap:6px;border-top:1px solid var(--line);margin-top:2px;}
+
+  .fld-list{flex:1;overflow-y:auto;padding:6px 18px 20px;}
+  .fld-list::-webkit-scrollbar{width:0;}
+  .fld{display:flex;align-items:center;gap:11px;padding:15px 0;border-bottom:1px solid var(--line-soft);width:100%;background:none;border-left:0;border-right:0;border-top:0;font-family:inherit;font-size:13.5px;color:var(--ink);text-align:left;cursor:pointer;}
+  .fld .fdot{width:7px;height:7px;border-radius:50%;flex:none;}
+  .fld .n{margin-left:auto;font-size:11.5px;color:var(--muted);}
+  .fld .chev{margin-left:5px;}
+  .new-fld{display:flex;align-items:center;gap:9px;padding:14px 0;color:var(--accent);font-size:13.5px;font-weight:600;background:none;border:0;font-family:inherit;width:100%;cursor:pointer;}
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="statusbar">
+    <div class="notch"></div>
+    <span>9:41</span>
+    <div class="sb-icons">
+      <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="15" height="11" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M1 4.2a10 10 0 0114 0"/><path d="M3.8 7a7 7 0 018.4 0"/><path d="M6.4 9.6a3.6 3.6 0 013.2 0"/></svg>
+      <svg width="24" height="11" viewBox="0 0 26 12" fill="none"><rect x="0.6" y="0.6" width="21" height="10.8" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.2" y="2.2" width="16" height="7.6" rx="2" fill="currentColor"/><path d="M23.4 4v4a2.2 2.2 0 000-4z" fill="currentColor" fill-opacity=".4"/></svg>
+    </div>
+  </div>
+
+  <div class="host">
+
+    <!-- ============ 01 列表 ============ -->
+    <!-- ============ 00 登录 ============ -->
+    <section class="screen on ascreen" id="s-login">
+      <div class="ahero">
+        <div class="amark"><img src="../icon-v1.png" alt="Coffer" style="width:56px;height:56px;display:block;" /></div>
+        <h2>欢迎回来</h2>
+        <p>登录后解锁你的保险库</p>
+      </div>
+      <div class="abody">
+        <label class="alb">邮箱</label>
+        <input class="vf-input" id="lg-email" type="email" placeholder="you@example.com" autocomplete="off" />
+        <label class="alb">主密码</label>
+        <input class="vf-input" id="lg-pwd" type="password" placeholder="主密码" autocomplete="off" />
+        <button class="a-btn" id="lg-ok">登录</button>
+        <button class="a-link" id="go-reg">还没有账号？创建保险库 →</button>
+        <p class="a-note">演示环境：输入任意内容即可通过</p>
+      </div>
+    </section>
+
+    <!-- ============ 00b 注册 ============ -->
+    <section class="screen ascreen" id="s-register">
+      <div class="ahero">
+        <div class="amark"><img src="../icon-v1.png" alt="Coffer" style="width:56px;height:56px;display:block;" /></div>
+        <h2>创建你的保险库</h2>
+        <p>主密码用于在本地加密所有数据<br/>服务端只保存密文</p>
+      </div>
+      <div class="abody">
+        <label class="alb">邮箱</label>
+        <input class="vf-input" id="rg-email" type="email" placeholder="you@example.com" autocomplete="off" />
+        <label class="alb">设置主密码</label>
+        <input class="vf-input" id="rg-pwd" type="password" placeholder="至少 8 位，建议 12 位以上" autocomplete="off" />
+        <div class="a-strength" id="rg-strength"></div>
+        <label class="alb">确认主密码</label>
+        <input class="vf-input" id="rg-pwd2" type="password" placeholder="再输一次" autocomplete="off" />
+        <label class="a-ack"><input type="checkbox" id="rg-ack" /><span>我了解：<b>主密码是唯一的解锁凭证，服务端无法找回</b>，遗失将永久无法访问本保险库。</span></label>
+        <button class="a-btn" id="rg-ok">创建保险库</button>
+        <button class="a-link" id="go-login">已有账号？直接登录 →</button>
+      </div>
+    </section>
+
+    <section class="screen" id="s-list">
+      <div class="nav">
+        <button class="ttl-btn" id="list-title">
+          <span id="list-title-txt">保险库</span>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </button>
+        <div class="right">
+          <button class="icon-btn" id="btn-lock" title="锁定">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <label class="search">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="q" placeholder="搜索凭证" autocomplete="off" />
+      </label>
+
+      <div class="chips" id="chips">
+        <button class="chip on" data-f="all">全部</button>
+        <button class="chip" data-f="login">账号</button>
+        <button class="chip" data-f="card">卡片</button>
+        <button class="chip" data-f="note">笔记</button>
+      </div>
+
+      <div class="sec-lbl" id="list-count">最近更新</div>
+      <div class="list" id="list"></div>
+
+      <button class="fab" id="fab">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+
+      <div class="tabbar">
+        <button class="tb on" data-tab="vault">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 4v16M16 4v16"/></svg>
+          凭证
+        </button>
+        <button class="tb" data-tab="fav">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>
+          收藏
+        </button>
+        <button class="tb" data-tab="me">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20a7.4 7.4 0 0114.4 0"/></svg>
+          我的
+        </button>
+        <div class="home-bar"></div>
+      </div>
+    </section>
+
+    <!-- ============ 02 详情 ============ -->
+    <section class="screen" id="s-detail">
+      <div class="nav">
+        <button class="icon-btn" id="d-back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <span class="ctr">详情</span>
+        <button class="act" id="d-edit" style="margin-left:auto;">编辑</button>
+      </div>
+      <div class="hero">
+        <div class="tile" id="d-tile">阿</div>
+        <h2 id="d-name">—</h2>
+        <div class="sub" id="d-sub"></div>
+      </div>
+      <div class="dbody" id="d-body"></div>
+      <div class="dbottom" id="d-bottom">
+        <button class="btn-primary" id="d-copy">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M15 6.5A2.5 2.5 0 0012.5 4H6.5A2.5 2.5 0 004 6.5v6A2.5 2.5 0 006.5 15"/></svg>
+          复制密码
+        </button>
+        <button class="btn-square" id="d-fav" title="收藏">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6-5.3-2.9-5.3 2.9 1.1-6L3.4 9.8l6-.8z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ 03 新建 / 编辑 ============ -->
+    <section class="screen" id="s-new">
+      <div class="nav">
+        <button class="act dim" id="n-cancel">取消</button>
+        <span class="ctr" id="n-title">新建凭证</span>
+        <button class="act" id="n-save" style="margin-left:auto;">保存</button>
+      </div>
+      <div class="form">
+        <div class="type-row" id="type-row">
+          <button class="type on" data-type="login">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M14.5 3.5a5.5 5.5 0 01-6.7 6.7L4 14v3h3l1-1h2v-2h2l1.8-1.8a5.5 5.5 0 006.7-6.7l-2.6 2.6-2.8-2.8z"/></svg>
+            账号
+          </button>
+          <button class="type" data-type="card">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="M2.5 10h19"/><path d="M6 14.5h4"/></svg>
+            卡片
+          </button>
+          <button class="type" data-type="note">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M5 4h11l3 3v13H5z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+            笔记
+          </button>
+        </div>
+
+        <div class="f">
+          <label id="lbl-name">名称</label>
+          <input id="f-name" placeholder="例如：阿里云控制台" autocomplete="off" />
+        </div>
+
+        <div class="f" data-for="login">
+          <label>用户名</label>
+          <input id="f-user" placeholder="邮箱或用户名" autocomplete="off" />
+        </div>
+
+        <div class="f" data-for="card">
+          <label>卡号 / 证件号</label>
+          <input id="f-cardno" placeholder="6225 8801 4472 3721" autocomplete="off" />
+        </div>
+
+        <div class="f" data-for="login,card">
+          <label id="lbl-pwd">密码</label>
+          <div class="row">
+            <input id="f-pwd" placeholder="输入或生成" autocomplete="off" />
+            <button class="mini" id="f-gen">生成</button>
+          </div>
+          <div class="hint" id="f-pwd-hint">建议 16 位以上，包含大小写与符号</div>
+        </div>
+
+        <div class="f" data-for="card">
+          <label>有效期</label>
+          <input id="f-expiry" placeholder="2031-06 或 09/28" autocomplete="off" />
+        </div>
+
+        <div class="f" data-for="login">
+          <label>网址</label>
+          <input id="f-url" placeholder="https://" autocomplete="off" />
+        </div>
+
+        <div class="f">
+          <label id="lbl-note">备注</label>
+          <textarea id="f-note" placeholder="写点什么…"></textarea>
+        </div>
+
+        <div class="f">
+          <label id="lbl-img">图片附件（可选）</label>
+          <button class="upload" id="f-upload">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="8.5" cy="9.5" r="1.6"/><path d="M3 17l5-4.2 4 3.2 4-4.6 5 5"/></svg>
+            <b>从相册选择</b>
+            <i>上传后本地加密，仅密文出网</i>
+          </button>
+          <div class="picked" id="f-picked"></div>
+        </div>
+
+        <div class="f">
+          <label>文件夹</label>
+          <button class="folder-row" id="f-folder">
+            <span class="pin" id="f-folder-pin"></span>
+            <span id="f-folder-name">工作</span>
+            <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ 04 我的 ============ -->
+    <section class="screen" id="s-me">
+      <div class="nav">
+        <button class="icon-btn" id="m-back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <span class="ctr">我的</span>
+      </div>
+      <div class="me-head" id="me-head" title="编辑个人资料">
+        <div class="avatar" id="me-avatar">sy</div>
+        <h3 id="me-name">sylvie233</h3>
+        <p>上次同步 2 分钟前 · 已解锁</p>
+      </div>
+      <div class="me-list">
+        <button class="me-row" id="m-profile">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8.5" r="3.6"/><path d="M4.8 20a7.4 7.4 0 0114.4 0"/><path d="M15.5 15.5l4 4M19.5 15.5l-4 4" stroke-width="1.7"/></svg>
+          个人信息
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+        <button class="me-row" id="m-pwd">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M14.5 3.5a5.5 5.5 0 01-6.7 6.7L4 14v3h3l1-1h2v-2h2l1.8-1.8a5.5 5.5 0 006.7-6.7l-2.6 2.6-2.8-2.8z"/></svg>
+          修改主密码
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+        <button class="me-row" id="m-folders">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          文件夹管理
+          <span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></span>
+        </button>
+        <button class="me-row" id="m-lock">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4.5" y="10.5" width="15" height="10" rx="2.5"/><path d="M8 10.5V7.8a4 4 0 018 0v2.7"/></svg>
+          锁定保险库
+        </button>
+        <button class="me-row" style="border-bottom:0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8.5v.1M12 11.5v4"/></svg>
+          关于 Coffer <span style="margin-left:auto;font-size:11.5px;color:#A29C90;">v1.0</span>
+        </button>
+      </div>
+      <div class="me-list" style="padding-top:0;">
+        <button class="me-logout" id="m-logout">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3.5A1.5 1.5 0 0120 5.5v13A1.5 1.5 0 0118.5 20H15"/><path d="M10 8l-4 4 4 4M6 12h9"/></svg>
+          退出登录
+        </button>
+      </div>
+    </section>
+
+    <!-- ============ 04b 个人信息 ============ -->
+    <section class="screen" id="s-profile">
+      <div class="nav">
+        <button class="icon-btn" id="pr-back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <span class="ctr">个人信息</span>
+        <button class="act" id="pr-save" style="margin-left:auto;">保存</button>
+      </div>
+      <div class="me-head" style="border-bottom:0;padding-bottom:8px;">
+        <div class="avatar" id="pr-avatar" title="点击上传头像">sy</div>
+        <p>点击头像上传图片（可选）</p>
+        <div class="swrow" id="pr-swatches" style="margin-top:10px;justify-content:center;"></div>
+      </div>
+      <div class="me-list" style="padding-top:2px;">
+        <div class="f"><label>昵称</label><input id="pr-name" maxlength="16" placeholder="怎么称呼你" autocomplete="off" /></div>
+        <div class="f" id="pr-avatar-rm-w" style="display:none;"><button class="rm-link" id="pr-avatar-rm">移除头像，恢复文字头像</button></div>
+        <div class="f"><label>邮箱</label><input id="pr-email" readonly /><p class="hint">邮箱用于登录，不可修改</p></div>
+        <p style="font-size:11px;color:#B6AFA2;line-height:1.6;padding:4px 2px 0;">昵称仅用于展示与同步标识，不参与加密。</p>
+      </div>
+      <input type="file" id="pr-file" accept="image/*" style="display:none;" />
+    </section>
+
+    <!-- ============ 05 文件夹管理 ============ -->
+    <section class="screen" id="s-folders">
+      <div class="nav">
+        <button class="icon-btn" id="fl-back">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <span class="ctr">文件夹</span>
+        <button class="act" id="fl-new" style="margin-left:auto;">新建</button>
+      </div>
+      <div class="fld-list" id="fld-list"></div>
+      <p style="font-size:11px;color:#B6AFA2;line-height:1.6;padding:0 18px 24px;flex:none;">删除文件夹不会删除其中的凭证，它们会移到「未分类」。</p>
+    </section>
+
+    <!-- ============ 浮层 ============ -->
+    <div class="toast" id="toast"></div>
+
+    <div class="viewer" id="viewer">
+      <button class="vclose" id="v-close">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+      <img id="v-img" alt="" />
+      <div class="vc" id="v-cap"></div>
+    </div>
+
+    <div class="sheet" id="sheet">
+      <div class="card">
+        <h4 id="sh-title">删除这条凭证？</h4>
+        <p id="sh-text">删除后可在回收站保留 30 天。</p>
+        <div class="acts">
+          <button id="sh-cancel">取消</button>
+          <button class="del" id="sh-ok">删除</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 验证身份 -->
+    <div class="sheet" id="verify">
+      <div class="card">
+        <h4>验证身份</h4>
+        <p id="vf-sub" style="margin-bottom:14px;">输入主密码以查看此条目的内容。</p>
+        <input class="vf-input" id="vf-pwd" type="password" placeholder="主密码" autocomplete="off" />
+        <div class="acts" style="margin-top:14px;">
+          <button id="vf-cancel">取消</button>
+          <button class="ok" id="vf-ok">解锁</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 选择文件夹 -->
+    <div class="sheet" id="pick">
+      <div class="card">
+        <h4 id="pk-title">选择文件夹</h4>
+        <div class="sheet-list" id="pk-list"></div>
+      </div>
+    </div>
+
+    <!-- 添加图片：相册 -->
+
+    <!-- 退出登录 -->
+    <div class="sheet" id="logout-sheet">
+      <div class="card">
+        <h4>退出登录？</h4>
+        <p>退出后需要重新输入邮箱与主密码登录。凭证以密文形式保存在云端，退出登录不会删除任何数据。</p>
+        <div class="acts">
+          <button id="lo-cancel">取消</button>
+          <button class="del" id="lo-ok">退出登录</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 修改主密码 -->
+    <div class="sheet" id="pwd-sheet">
+      <div class="card">
+        <h4>修改主密码</h4>
+        <p>保存后会对全部凭证重新加密，其他设备需要重新登录。</p>
+        <div class="clabel" style="margin-top:0;">当前主密码</div>
+        <input id="pw-old" type="password" placeholder="输入当前主密码" autocomplete="off" style="margin-top:6px;" />
+        <div class="clabel">新主密码</div>
+        <input id="pw-new" type="password" placeholder="至少 8 位" autocomplete="off" style="margin-top:6px;" />
+        <div class="clabel">再次输入新主密码</div>
+        <input id="pw-new2" type="password" placeholder="再输入一次" autocomplete="off" style="margin-top:6px;" />
+        <div class="acts" style="margin-top:16px;">
+          <button id="pw-cancel">取消</button>
+          <button class="ok" id="pw-ok">确认修改</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 文件夹操作 -->
+    <div class="sheet" id="fopt">
+      <div class="card">
+        <h4 id="fo-title">工作</h4>
+        <p id="fo-sub">0 条凭证</p>
+        <div class="clabel">颜色</div>
+        <div class="swrow" id="fo-swatches" style="margin-top:9px;"></div>
+        <div class="acts col" style="margin-top:18px;">
+          <button id="fo-rename">重命名</button>
+          <button class="del" id="fo-del">删除文件夹</button>
+          <button class="quiet" id="fo-cancel">取消</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 新建 / 重命名文件夹 -->
+    <div class="sheet" id="fld-sheet">
+      <div class="card">
+        <h4 id="fs-title">新建文件夹</h4>
+        <p id="fs-sub">文件夹只是分类，不影响加密</p>
+        <input id="fs-input" placeholder="例如：工作" maxlength="12" autocomplete="off" />
+        <div class="clabel">颜色</div>
+        <div class="swrow" id="fs-swatches" style="margin-top:9px;"></div>
+        <div class="acts" style="margin-top:16px;">
+          <button id="fs-cancel">取消</button>
+          <button class="ok" id="fs-ok">创建</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="lock" id="lock">
+      <div class="mark">
+        <img src="../icon-v1.png" alt="Coffer" style="width:40px;height:40px;display:block;" />
+      </div>
+      <h3>Coffer 已锁定</h3>
+      <p>输入主密码解锁保险库</p>
+      <input id="lock-pwd" type="password" placeholder="主密码" />
+      <button id="lock-btn">解锁</button>
+    </div>
+
+  </div>
+</div>
+
+<p class="hint">点条目进详情 · 点 <b>+</b> 新建并保存 · 右上角锁图标锁屏 · 详情里长按标题可删除</p>
+
+<script>
+function svgImg(w,h,inner){
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="'+w+'" height="'+h+'">'+inner+'</svg>');
+}
+var IMG_CARD = svgImg(236,168,'<rect width="236" height="168" fill="#EFE7D6"/><rect x="14" y="14" width="208" height="140" rx="6" fill="#FBF7EC" stroke="#D8CBB0"/><rect x="30" y="30" width="46" height="56" rx="4" fill="#DCD2BE"/><rect x="86" y="32" width="104" height="8" rx="4" fill="#C9BEA5"/><rect x="86" y="50" width="76" height="7" rx="3.5" fill="#DCD2BE"/><rect x="86" y="66" width="90" height="7" rx="3.5" fill="#DCD2BE"/><rect x="30" y="104" width="160" height="6" rx="3" fill="#E4DACA"/><rect x="30" y="120" width="120" height="6" rx="3" fill="#E4DACA"/>');
+var IMG_DOC = svgImg(236,168,'<rect width="236" height="168" fill="#E6ECE9"/><rect x="16" y="16" width="204" height="136" rx="6" fill="#F5F8F6" stroke="#C6D2CC"/><rect x="32" y="34" width="120" height="10" rx="5" fill="#BFCFC8"/><rect x="32" y="56" width="168" height="7" rx="3.5" fill="#D2DCD7"/><rect x="32" y="72" width="150" height="7" rx="3.5" fill="#D2DCD7"/><rect x="32" y="96" width="96" height="26" rx="4" fill="#C9D6D0"/>');
+var IMG_SHOT = svgImg(236,168,'<rect width="236" height="168" fill="#EDEAF4"/><rect x="16" y="16" width="204" height="136" rx="6" fill="#F7F5FB" stroke="#CFC8DE"/><rect x="30" y="30" width="60" height="8" rx="4" fill="#C3BAD6"/><rect x="30" y="52" width="176" height="6" rx="3" fill="#D8D2E4"/><rect x="30" y="66" width="150" height="6" rx="3" fill="#D8D2E4"/><rect x="30" y="86" width="176" height="46" rx="5" fill="#E6E1F0"/>');
+
+var ITEMS = [
+  {id:1,name:'阿里云控制台',user:'coffer-admin@ibeny.com',pwd:'Aliyun@2026#Sec',type:'login',folder:'工作',color:'#EAF1FB',ink:'#2C6BA8',g:'阿',updated:'3 天前',url:'https://ecs.console.aliyun.com',note:'生产环境主账号，MFA 已绑定运维手机',fav:true,images:[{cap:'实名认证-正面',src:IMG_CARD},{cap:'ICP 备案截图',src:IMG_DOC}]},
+  {id:2,name:'GitHub',user:'sylvie-233',pwd:'gh_9f2Ad!kLmQ7z',type:'login',folder:'工作',color:'#F0EDE4',ink:'#3B3833',g:'G',updated:'昨天',url:'https://github.com',note:'个人账号，已开启 2FA',fav:true,images:[]},
+  {id:3,name:'身份证正反面',user:'',pwd:'',type:'card',cardno:'4403 **** **** 2217',expiry:'2031-06',folder:'个人',color:'#FBEFE6',ink:'#B3662A',g:'证',updated:'1 周前',url:'',note:'办理业务时用；正反面已拍全',fav:false,images:[{cap:'身份证-正面',src:IMG_CARD},{cap:'身份证-反面',src:IMG_DOC},{cap:'手持照',src:IMG_SHOT}]},
+  {id:4,name:'家庭 Wi-Fi',user:'Coffer_Home_5G',pwd:'home@2026wifi',type:'login',folder:'家庭共享',color:'#EDF3EA',ink:'#4C7A3F',g:'家',updated:'2 周前',url:'',note:'路由器在客厅电视柜下方',fav:false,images:[]},
+  {id:5,name:'招商银行储蓄卡',user:'',pwd:'881203',type:'card',cardno:'6225 8801 4472 3721',expiry:'09/28',folder:'个人',color:'#F3ECF7',ink:'#6E4A8C',g:'招',updated:'1 个月前',url:'',note:'取款密码即 PIN，勿外传',fav:false,images:[]},
+  {id:6,name:'Apple ID',user:'sylvie233@icloud.com',pwd:'App1e@ID#2026',type:'login',folder:'个人',color:'#EFEFEF',ink:'#333333',g:'A',updated:'1 个月前',url:'https://appleid.apple.com',note:'',fav:true,images:[]},
+  {id:7,name:'服务器 SSH 私钥',user:'',pwd:'',type:'note',folder:'工作',color:'#E9F1F2',ink:'#35707B',g:'S',updated:'2 个月前',url:'',note:'id_ed25519 私钥备份说明：\n存放于加密卷 /vault/ssh 下，口令单独保存。\n指纹：SHA256:9xK2…Qz7',fav:false,images:[]},
+  {id:8,name:'发票抬头信息',user:'',pwd:'',type:'note',folder:'工作',color:'#FBEFF0',ink:'#A84A55',g:'发',updated:'3 个月前',url:'',note:'名称：深圳市云枢科技有限公司\n税号：91440300MA5F****XK\n开户行：招商银行深圳分行',fav:false,images:[]}
+];
+
+var state = {tab:'vault', filter:'all', q:'', current:null, editing:null, type:'login', picked:[], scope:null, formFolder:null, locked:true};
+
+/* ---------------- 文件夹 ---------------- */
+var FOLDERS = [
+  {name:'工作', color:'#4C8FD1'},
+  {name:'个人', color:'#C9752F'},
+  {name:'家庭共享', color:'#6E8F5A'}
+];
+var PALETTE = ['#4C8FD1','#6E8F5A','#C9752F','#8C6BB1','#A84A55','#35707B','#B08A2E','#5B6C8F','#7A8F4C'];
+var fldEditing = null;   // 正在重命名的文件夹
+var fsColor = PALETTE[0]; // 新建/重命名时选中的颜色
+
+function renderSwatches(el, sel, onPick){
+  el.innerHTML = PALETTE.map(function(c){
+    return '<button class="sw' + (c === sel ? ' on' : '') + '" data-c="' + c + '" style="background:' + c + ';--c:' + c + '" title="' + c + '"></button>';
+  }).join('');
+  el.onclick = function(e){
+    var b = e.target.closest('.sw');
+    if (b) onPick(b.dataset.c);
+  };
+}
+function pickFs(c){          /* 新建/重命名弹层里选色 */
+  fsColor = c;
+  renderSwatches($('#fs-swatches'), c, pickFs);
+}
+function pickFo(c){         /* 操作面板里即时改色 */
+  FOLDERS.forEach(function(f){ if (f.name === fldTarget) f.color = c; });
+  renderFolders(); renderList();
+  toast('颜色已更新');
+  renderSwatches($('#fo-swatches'), c, pickFo);
+}
+var fldTarget = null;    // 操作面板指向的文件夹
+
+function fcolor(name){
+  var f = FOLDERS.filter(function(x){ return x.name === name; })[0];
+  return f ? f.color : '#C9C2B2';
+}
+function fname(name){
+  return FOLDERS.some(function(f){ return f.name === name; }) ? name : '未分类';
+}
+function fcount(name){
+  return ITEMS.filter(function(x){ return fname(x.folder) === name; }).length;
+}
+var currentScreen = 's-login';
+var $ = function(s){ return document.querySelector(s); };
+var $$ = function(s){ return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+function show(id){
+  if (id === currentScreen) return;
+  var from = document.getElementById(currentScreen);
+  var to = document.getElementById(id);
+  from.classList.remove('on');
+  from.classList.add('out');
+  setTimeout(function(){ from.classList.remove('out'); }, 280);
+  to.classList.add('on');
+  currentScreen = id;
+}
+
+function visibleItems(){
+  return ITEMS.filter(function(it){
+    if (state.tab === 'fav' && !it.fav) return false;
+    if (state.scope && fname(it.folder) !== state.scope) return false;
+    if (state.filter !== 'all' && it.type !== state.filter) return false;
+    if (state.q){
+      var q = state.q.toLowerCase();
+      if ((it.name + ' ' + (it.user||'') + ' ' + (it.cardno||'') + ' ' + (it.note||'')).toLowerCase().indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+function maskNo(s){
+  var d = String(s || '').replace(/\s/g,'');
+  if (!d) return '未填写卡号';
+  return d.length <= 4 ? d : '•••• ' + d.slice(-4);
+}
+function subOf(it){
+  if (it.type === 'card') return '卡片证件 · ' + maskNo(it.cardno);
+  if (it.type === 'note') return '安全笔记';
+  return it.user || '未填写用户名';
+}
+function renderList(){
+  var arr = visibleItems();
+  $('#list-count').textContent = (state.scope ? state.scope + ' · ' : (state.tab === 'fav' ? '收藏 · ' : '最近更新 · ')) + arr.length;
+  $('#list-title-txt').textContent = state.scope || (state.tab === 'fav' ? '收藏' : '保险库');
+  var wrap = $('#list');
+  if (!arr.length){
+    wrap.innerHTML = '<div class="empty">没有匹配的凭证<br/>换个关键词，或点右下角 + 新建</div>';
+    return;
+  }
+  wrap.innerHTML = arr.map(function(it){
+    return '<button class="item" data-id="' + it.id + '">' +
+      '<div class="tile" style="background:' + it.color + ';color:' + it.ink + ';">' + it.g + '</div>' +
+      '<div class="item-txt"><b>' + it.name + '</b><span>' + subOf(it) + '</span></div>' +
+      '<span class="chev"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></span>' +
+      '</button>';
+  }).join('');
+  $$('#list .item').forEach(function(el){
+    el.addEventListener('click', function(){ openDetail(+el.dataset.id); });
+  });
+}
+
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+
+function row(label, val, kind, isPwd){
+  var tools = '';
+  if (kind === 'pwd'){
+    tools = '<button data-reveal><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 12S6 6.5 12 6.5 21.5 12 21.5 12 18 17.5 12 17.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.6"/></svg></button>' +
+      '<button data-copy="' + esc(state.current.pwd) + '" data-msg="密码已复制，10 秒后清空"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M15 6.5A2.5 2.5 0 0012.5 4H6.5A2.5 2.5 0 004 6.5v6A2.5 2.5 0 006.5 15"/></svg></button>';
+  } else {
+    tools = '<button data-copy="' + esc(val) + '" data-msg="已复制"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2.4"/><path d="M15 6.5A2.5 2.5 0 0012.5 4H6.5A2.5 2.5 0 004 6.5v6A2.5 2.5 0 006.5 15"/></svg></button>';
+  }
+  return '<div class="drow"><div class="lb">' + label + '</div>' +
+    '<div class="vl' + (isPwd ? ' mono' : '') + '"' + (isPwd ? ' data-shown="0"' : '') + '>' + val + '</div>' +
+    '<div class="tl">' + tools + '</div></div>';
+}
+function textRow(label, val){
+  return '<div class="drow" style="align-items:flex-start;"><div class="lb">' + label + '</div>' +
+    '<div class="vl" style="white-space:normal;color:#3A362F;font-size:12.5px;line-height:1.6;">' + esc(val).replace(/\n/g,'<br/>') + '</div></div>';
+}
+
+function openDetail(id, unlocked){
+  var it = ITEMS.filter(function(x){ return x.id === id; })[0];
+  if (!it) return;
+  state.current = it;
+  state.locked = !unlocked;   /* 每次进入详情默认上锁，刚保存的条目除外 */
+  $('#d-tile').textContent = it.g;
+  $('#d-tile').style.background = it.color;
+  $('#d-tile').style.color = it.ink;
+  $('#d-name').textContent = it.name;
+
+  var TYPE_LABEL = {login:'登录账号', card:'卡片证件', note:'安全笔记'};
+  var label = TYPE_LABEL[it.type] || '凭证';
+  $('#d-sub').innerHTML = '<span class="tag">' + label + '</span><span class="dot"></span><em>' + fname(it.folder) + '</em>' +
+    (it.type === 'note' ? '' : '<span class="dot"></span><em>' + it.updated + '更新</em>');
+
+  var body = '';
+  if (state.locked){
+    var what = it.type === 'login' ? '用户名、密码和图片附件'
+             : (it.type === 'card' ? '卡号、有效期、PIN 和图片附件' : '笔记正文');
+    body = '<div class="dlocked">' +
+      '<div class="seal"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2.6"/><path d="M8 10V7.6a4 4 0 018 0V10"/><circle cx="12" cy="15.2" r="1.3"/></svg></div>' +
+      '<h4>此条目已加密保护</h4>' +
+      '<p>查看' + what + '需要再次验证。<br/>标题、类型和修改时间不加密，可以直接看到。</p>' +
+      '<button class="go" id="unlock-view"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="4.5" y="10" width="15" height="10.5" rx="2.6"/><path d="M8 10V7.6a4 4 0 018 0V10"/></svg>解锁查看</button>' +
+      '<div class="hintline">解锁仅对当前条目有效，返回后会重新上锁</div>' +
+      '<div class="blur-rows"><i></i><i></i><i></i><i></i></div>' +
+      '</div>';
+  } else if (it.type === 'login'){
+    body += row('用户名', it.user || '—');
+    body += row('密码', '••••••••••••', 'pwd', true);
+    if (it.url) body += row('网址', it.url.replace(/^https?:\/\//,'').replace(/&/g,'&amp;'));
+    if (it.note) body += textRow('备注', it.note);
+  } else if (it.type === 'card'){
+    body += row('卡号 / 证件号', esc(it.cardno || '—'));
+    if (it.expiry) body += row('有效期', esc(it.expiry));
+    if (it.pwd) body += row('密码 / PIN', '••••••••', 'pwd', true);
+    if (it.note) body += textRow('备注', it.note);
+  } else if (it.type === 'note'){
+    body += '<div style="font-size:13px;line-height:1.75;color:#3A362F;white-space:pre-wrap;padding:6px 0 4px;">' + esc(it.note) + '</div>';
+  }
+
+  if (!state.locked && it.images && it.images.length){
+    body += '<div class="dsec"><div class="dsec-h"><span>' + (it.type === 'card' ? '卡片正反面 / 附件' : '图片附件') + '</span><em>' + it.images.length + ' 张 · 已加密</em></div><div class="thumbs">' +
+      it.images.map(function(im,i){
+        return '<button class="thumb" data-i="' + i + '"><img src="' + im.src + '" alt=""/><div class="cap">' + im.cap + '</div></button>';
+      }).join('') + '</div></div>';
+  }
+  $('#d-body').innerHTML = body;
+
+  var ub = $('#unlock-view');
+  if (ub) ub.addEventListener('click', function(){ askVerify(null); });
+
+  $$('#d-body .thumb').forEach(function(el){
+    el.addEventListener('click', function(){
+      var im = it.images[+el.dataset.i];
+      $('#v-img').src = im.src;
+      $('#v-cap').textContent = im.cap;
+      $('#viewer').classList.add('on');
+    });
+  });
+  $$('#d-body [data-copy]').forEach(function(el){
+    el.addEventListener('click', function(){ copy(el.dataset.copy, el.dataset.msg); });
+  });
+  $$('#d-body [data-reveal]').forEach(function(el){
+    el.addEventListener('click', function(){
+      var v = $('#d-body .drow .vl[data-shown]');
+      if (v.dataset.shown === '1'){ v.textContent = '••••••••••••'; v.dataset.shown = '0'; }
+      else { v.textContent = it.pwd; v.dataset.shown = '1'; }
+    });
+  });
+
+  /* 底部操作栏：锁定态整体不出现；没有可复制的字段时收藏靠右，避免左侧孤零零一个方块 */
+  var canCopy = !state.locked && (it.type === 'login' || (it.type === 'card' && it.pwd));
+  var bar = $('#d-bottom');
+  bar.style.display = state.locked ? 'none' : 'flex';
+  bar.classList.toggle('solo', !canCopy);
+  $('#d-copy').style.display = canCopy ? 'flex' : 'none';
+  $('#d-fav').classList.toggle('on', !!it.fav);
+  $('#d-fav').querySelector('svg').setAttribute('fill', it.fav ? 'currentColor' : 'none');
+  show('s-detail');
+}
+
+/* ---------------- 详情二次验证 ---------------- */
+var verifyAfter = null;
+function askVerify(after){
+  verifyAfter = after || null;
+  $('#vf-sub').textContent = state.current
+    ? ('输入主密码以查看「' + state.current.name + '」的内容。')
+    : '输入主密码以查看此条目的内容。';
+  $('#vf-pwd').value = '';
+  $('#verify').classList.add('on');
+  setTimeout(function(){ $('#vf-pwd').focus(); }, 240);
+}
+function doVerify(){
+  if (!$('#vf-pwd').value){ toast('请输入主密码（演示环境任意输入）'); $('#vf-pwd').focus(); return; }
+  $('#verify').classList.remove('on');
+  state.locked = false;
+  var after = verifyAfter;
+  verifyAfter = null;
+  if (after){ after(); return; }
+  if (state.current) openDetail(state.current.id, true);
+  toast('已解锁，返回列表后自动重新上锁');
+}
+$('#vf-ok').addEventListener('click', doVerify);
+$('#vf-cancel').addEventListener('click', function(){ $('#verify').classList.remove('on'); });
+$('#verify').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+$('#vf-pwd').addEventListener('keydown', function(e){ if (e.key === 'Enter') doVerify(); });
+
+function setType(t){
+  state.type = t;
+  $$('#type-row .type').forEach(function(el){ el.classList.toggle('on', el.dataset.type === t); });
+  $$('.form .f[data-for]').forEach(function(el){
+    el.style.display = el.dataset.for.split(',').indexOf(t) > -1 ? 'block' : 'none';
+  });
+  $('#lbl-name').textContent = t === 'note' ? '标题' : '名称';
+  $('#lbl-note').textContent = t === 'note' ? '正文' : '备注';
+  $('#lbl-pwd').textContent = t === 'card' ? '密码 / PIN（可选）' : '密码';
+  $('#lbl-img').textContent = t === 'card' ? '卡片正反面 / 附件' : '图片附件（可选）';
+  $('#f-gen').style.display = t === 'card' ? 'none' : '';
+  $('#f-pwd-hint').textContent = t === 'card' ? '取款密码、门禁 PIN 等，可留空' : '建议 16 位以上，包含大小写与符号';
+  $('#f-name').placeholder = t === 'card' ? '例如：招商银行储蓄卡' : (t === 'note' ? '例如：服务器 SSH 说明' : '例如：阿里云控制台');
+  $('#n-title').textContent = state.editing ? '编辑凭证' : '新建凭证';
+}
+
+function openNew(editItem){
+  state.editing = editItem || null;
+  state.picked = [];
+  $('#f-name').value = editItem ? editItem.name : '';
+  $('#f-user').value = editItem ? (editItem.user || '') : '';
+  $('#f-cardno').value = editItem ? (editItem.cardno || '') : '';
+  $('#f-expiry').value = editItem ? (editItem.expiry || '') : '';
+  $('#f-pwd').value = editItem ? (editItem.pwd || '') : '';
+  $('#f-url').value = editItem ? (editItem.url || '') : '';
+  $('#f-note').value = editItem ? (editItem.note || '') : '';
+  $('#f-picked').innerHTML = '';
+  state.formFolder = editItem ? fname(editItem.folder) : (state.scope || (FOLDERS[0] && FOLDERS[0].name) || '未分类');
+  $('#f-folder-name').textContent = state.formFolder;
+  $('#f-folder-pin').style.background = fcolor(state.formFolder);
+  setType(editItem ? editItem.type : 'login');
+  show('s-new');
+}
+
+$('#type-row').addEventListener('click', function(e){
+  var b = e.target.closest('.type');
+  if (b) setType(b.dataset.type);
+});
+
+$('#f-gen').addEventListener('click', function(){
+  var chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*';
+  var out = '';
+  for (var i = 0; i < 18; i++) out += chars[Math.floor(Math.random()*chars.length)];
+  $('#f-pwd').value = out;
+  $('#f-pwd-hint').textContent = '已生成 18 位强密码';
+});
+
+$('#f-upload').addEventListener('click', function(){
+  var pool = [IMG_CARD, IMG_DOC, IMG_SHOT];
+  state.picked.push({src:pool[state.picked.length % pool.length], cap:'相册'});
+  $('#f-picked').innerHTML = state.picked.map(function(p){
+    return '<div class="p"><img src="' + p.src + '" alt=""/></div>';
+  }).join('');
+  toast('已添加 1 张');
+});
+
+$('#f-folder').addEventListener('click', function(){ openPick('form'); });
+
+/* ---------------- 文件夹：选择 / 新建 / 重命名 / 删除 ---------------- */
+var pickMode = 'form';
+function openPick(mode){
+  pickMode = mode;
+  $('#pk-title').textContent = mode === 'scope' ? '按文件夹查看' : '选择文件夹';
+  var html = '';
+  if (mode === 'scope'){
+    html += '<button class="opt' + (!state.scope ? ' sel' : '') + '" data-pick="">' +
+      '<span class="fdot" style="background:#CFC9BB"></span>全部凭证' +
+      '<span class="n">' + ITEMS.length + '</span>' +
+      (!state.scope ? '<span class="tick">✓</span>' : '') + '</button>';
+  }
+  html += FOLDERS.map(function(f){
+    var cur = mode === 'scope' ? state.scope : state.formFolder;
+    var n = fcount(f.name);
+    return '<button class="opt' + (cur === f.name ? ' sel' : '') + '" data-pick="' + esc(f.name) + '">' +
+      '<span class="fdot" style="background:' + f.color + '"></span>' + esc(f.name) +
+      '<span class="n">' + n + ' 条</span>' +
+      (cur === f.name ? '<span class="tick">✓</span>' : '') + '</button>';
+  }).join('');
+  if (fcount('未分类')){
+    html += '<button class="opt" data-pick="未分类"><span class="fdot" style="background:#C9C2B2"></span>未分类<span class="n">' + fcount('未分类') + ' 条</span></button>';
+  }
+  html += '<button class="opt newf" data-newf="1">＋ 新建文件夹</button>';
+  $('#pk-list').innerHTML = html;
+  $('#pick').classList.add('on');
+}
+$('#pk-list').addEventListener('click', function(e){
+  var nb = e.target.closest('[data-newf]');
+  if (nb){ $('#pick').classList.remove('on'); openFldSheet(null); return; }
+  var b = e.target.closest('[data-pick]');
+  if (!b) return;
+  var name = b.dataset.pick || null;
+  $('#pick').classList.remove('on');
+  if (pickMode === 'scope'){
+    state.scope = name;
+    renderList();
+  } else {
+    state.formFolder = name || (FOLDERS[0] && FOLDERS[0].name) || '未分类';
+    $('#f-folder-name').textContent = state.formFolder;
+    $('#f-folder-pin').style.background = fcolor(state.formFolder);
+  }
+});
+$('#pick').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+
+function renderFolders(){
+  $('#fld-list').innerHTML = FOLDERS.map(function(f){
+    return '<button class="fld" data-fld="' + esc(f.name) + '">' +
+      '<span class="fdot" style="background:' + f.color + '"></span>' + esc(f.name) +
+      '<span class="n">' + fcount(f.name) + ' 条</span>' +
+      '<span class="chev"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg></span></button>';
+  }).join('') || '<p style="font-size:12.5px;color:#948E82;padding:18px 0;">还没有文件夹</p>';
+  if (fcount('未分类')) $('#fld-list').innerHTML += '<div class="fld" style="color:#948E82;"><span class="fdot" style="background:#C9C2B2"></span>未分类<span class="n">' + fcount('未分类') + ' 条</span></div>';
+}
+$('#m-folders').addEventListener('click', function(){ renderFolders(); show('s-folders'); });
+$('#fl-back').addEventListener('click', function(){ show('s-me'); });
+$('#fl-new').addEventListener('click', function(){ openFldSheet(null); });
+
+$('#fld-list').addEventListener('click', function(e){
+  var b = e.target.closest('[data-fld]');
+  if (!b) return;
+  fldTarget = b.dataset.fld;
+  $('#fo-title').textContent = fldTarget;
+  $('#fo-sub').textContent = fcount(fldTarget) + ' 条凭证 · 删除后移入「未分类」';
+  renderSwatches($('#fo-swatches'), fcolor(fldTarget), pickFo);
+  $('#fopt').classList.add('on');
+});
+$('#fo-cancel').addEventListener('click', function(){ $('#fopt').classList.remove('on'); });
+$('#fopt').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+$('#fo-rename').addEventListener('click', function(){
+  $('#fopt').classList.remove('on');
+  openFldSheet(fldTarget);
+});
+$('#fo-del').addEventListener('click', function(){
+  $('#fopt').classList.remove('on');
+  var n = fcount(fldTarget);
+  $('#sh-title').textContent = '删除文件夹「' + fldTarget + '」？';
+  $('#sh-text').textContent = n ? ('其中 ' + n + ' 条凭证会移到「未分类」，不会被删除。') : '这个文件夹里没有凭证，可直接删除。';
+  $('#sh-ok').textContent = '删除文件夹';
+  pendingDel = {kind:'folder', name:fldTarget};
+  $('#sheet').classList.add('on');
+});
+
+function openFldSheet(name){
+  fldEditing = name || null;
+  fsColor = name ? fcolor(name) : PALETTE[FOLDERS.length % PALETTE.length];
+  renderSwatches($('#fs-swatches'), fsColor, pickFs);
+  $('#fs-title').textContent = name ? '重命名文件夹' : '新建文件夹';
+  $('#fs-sub').textContent = name ? '改名后，里面的凭证跟着走' : '文件夹只是分类，不影响加密';
+  $('#fs-ok').textContent = name ? '保存' : '创建';
+  $('#fs-input').value = name || '';
+  $('#fld-sheet').classList.add('on');
+  setTimeout(function(){ $('#fs-input').focus(); }, 240);
+}
+$('#fs-cancel').addEventListener('click', function(){ $('#fld-sheet').classList.remove('on'); });
+$('#fld-sheet').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+$('#fs-ok').addEventListener('click', submitFld);
+$('#fs-input').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitFld(); });
+function submitFld(){
+  var name = $('#fs-input').value.trim();
+  if (!name){ toast('给文件夹起个名字'); return; }
+  if (FOLDERS.some(function(f){ return f.name === name && f.name !== fldEditing; })){ toast('已有同名文件夹'); return; }
+  if (fldEditing){
+    var old = fldEditing;
+    FOLDERS.forEach(function(f){ if (f.name === old){ f.name = name; f.color = fsColor; } });
+    ITEMS.forEach(function(x){ if (x.folder === old) x.folder = name; });
+    if (state.scope === old) state.scope = name;
+    if (state.formFolder === old) state.formFolder = name;
+    toast('已重命名为「' + name + '」');
+  } else {
+    FOLDERS.push({name: name, color: fsColor});
+    if (pickMode === 'form' && $('#s-new').classList.contains('on')){
+      state.formFolder = name;
+      $('#f-folder-name').textContent = name;
+      $('#f-folder-pin').style.background = fcolor(name);
+    } else if (pickMode === 'scope'){
+      state.scope = name;
+    }
+    toast('已新建文件夹「' + name + '」');
+  }
+  fldEditing = null;
+  $('#fld-sheet').classList.remove('on');
+  $('#fs-input').value = '';
+  renderFolders();
+  renderList();
+}
+
+$('#n-save').addEventListener('click', function(){
+  var name = $('#f-name').value.trim();
+  if (!name){ toast('请先填写名称'); $('#f-name').focus(); return; }
+
+  /* 按类型取值：切类型后残留的隐藏字段不写进数据 */
+  var t = state.type;
+  var payload = {
+    user:   t === 'login' ? $('#f-user').value : '',
+    url:    t === 'login' ? $('#f-url').value : '',
+    cardno: t === 'card'  ? $('#f-cardno').value.trim() : '',
+    expiry: t === 'card'  ? $('#f-expiry').value.trim() : '',
+    pwd:    t === 'note'  ? '' : $('#f-pwd').value,
+    note:   $('#f-note').value
+  };
+
+  if (state.editing){
+    var it = state.editing;
+    it.name = name;
+    it.type = t;
+    it.user = payload.user;
+    it.url = payload.url;
+    it.cardno = payload.cardno;
+    it.expiry = payload.expiry;
+    it.pwd = payload.pwd;
+    it.note = payload.note;
+    it.folder = state.formFolder || it.folder;
+    it.updated = '刚刚';
+    it.g = name.charAt(0);
+    if (state.picked.length){
+      it.images = it.images.concat(state.picked.map(function(p){ return {cap:p.cap, src:p.src}; }));
+    }
+    toast('已保存修改');
+    renderList();
+    show('s-list');
+    setTimeout(function(){ openDetail(it.id, true); }, 280);
+  } else {
+    var item = {
+      id: Date.now(), name: name, type: t,
+      user: payload.user, url: payload.url,
+      cardno: payload.cardno, expiry: payload.expiry,
+      pwd: payload.pwd, note: payload.note,
+      folder: state.formFolder || '未分类',
+      color:'#E3EFEA', ink:'#125B4A', g: name.charAt(0), updated:'刚刚', fav:false,
+      images: state.picked.map(function(p){ return {cap:p.cap, src:p.src}; })
+    };
+    ITEMS.unshift(item);
+    state.filter = 'all';
+    state.q = '';
+    state.tab = 'vault';
+    $('#q').value = '';
+    $$('#chips .chip').forEach(function(c){ c.classList.toggle('on', c.dataset.f === 'all'); });
+    $$('.tabbar .tb').forEach(function(t){ t.classList.toggle('on', t.dataset.tab === 'vault'); });
+    renderList();
+    show('s-list');
+    toast('已保存到「' + item.folder + '」');
+  }
+});
+
+$('#chips').addEventListener('click', function(e){
+  var b = e.target.closest('.chip');
+  if (!b) return;
+  state.filter = b.dataset.f;
+  $$('#chips .chip').forEach(function(c){ c.classList.toggle('on', c === b); });
+  renderList();
+});
+
+$('#q').addEventListener('input', function(e){
+  state.q = e.target.value.trim();
+  renderList();
+});
+
+$('.tabbar').addEventListener('click', function(e){
+  var b = e.target.closest('.tb');
+  if (!b) return;
+  if (b.dataset.tab === 'me'){ show('s-me'); return; }
+  state.tab = b.dataset.tab;
+  $$('.tabbar .tb').forEach(function(t){ t.classList.toggle('on', t === b); });
+  renderList();
+});
+
+$('#fab').addEventListener('click', function(){ openNew(null); });
+$('#list-title').addEventListener('click', function(){ openPick('scope'); });
+$('#n-cancel').addEventListener('click', function(){ show('s-list'); });
+$('#d-back').addEventListener('click', function(){ show('s-list'); });
+$('#m-back').addEventListener('click', function(){ show('s-list'); });
+$('#d-edit').addEventListener('click', function(){
+  if (!state.current) return;
+  if (state.locked){ askVerify(function(){ openNew(state.current); }); return; }
+  openNew(state.current);
+});
+
+$('#d-fav').addEventListener('click', function(){
+  if (!state.current) return;
+  state.current.fav = !state.current.fav;
+  $('#d-fav').classList.toggle('on', state.current.fav);
+  $('#d-fav').querySelector('svg').setAttribute('fill', state.current.fav ? 'currentColor' : 'none');
+  toast(state.current.fav ? '已加入收藏' : '已取消收藏');
+  renderList();
+});
+
+$('#d-copy').addEventListener('click', function(){
+  if (!state.current || !state.current.pwd) return;
+  copy(state.current.pwd, '密码已复制，10 秒后自动清空');
+});
+
+function lockVault(){
+  $('#lock').classList.add('on');
+  $('#lock-pwd').value = '';
+  setTimeout(function(){ $('#lock-pwd').focus(); }, 280);
+}
+$('#btn-lock').addEventListener('click', lockVault);
+$('#m-lock').addEventListener('click', lockVault);
+$('#lock-btn').addEventListener('click', function(){
+  if (!$('#lock-pwd').value){ toast('请输入主密码（演示环境任意输入）'); return; }
+  $('#lock').classList.remove('on');
+  show('s-list');
+  toast('已解锁');
+});
+$('#lock-pwd').addEventListener('keydown', function(e){ if (e.key === 'Enter') $('#lock-btn').click(); });
+
+/* ---------------- 退出登录 ---------------- */
+$('#m-logout').addEventListener('click', function(){ $('#logout-sheet').classList.add('on'); });
+$('#lo-cancel').addEventListener('click', function(){ $('#logout-sheet').classList.remove('on'); });
+$('#logout-sheet').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+$('#lo-ok').addEventListener('click', function(){
+  $('#logout-sheet').classList.remove('on');
+  /* 清空会话态：当前条目、编辑态、解锁态、搜索与筛选、表单密码 */
+  state.current = null; state.editing = null; state.locked = true;
+  state.picked = []; state.scope = null; state.tab = 'vault'; state.filter = 'all'; state.q = '';
+  $('#q').value = '';
+  $('#lg-email').value = '';
+  $('#lg-pwd').value = '';
+  $('#rg-pwd').value = ''; $('#rg-pwd2').value = '';
+  renderList();
+  show('s-login');
+  toast('已退出登录');
+});
+$('#v-close').addEventListener('click', function(){ $('#viewer').classList.remove('on'); });
+
+/* ---------------- 修改主密码 ---------------- */
+$('#m-pwd').addEventListener('click', function(){
+  $('#pw-old').value = ''; $('#pw-new').value = ''; $('#pw-new2').value = '';
+  $('#pwd-sheet').classList.add('on');
+});
+$('#pw-cancel').addEventListener('click', function(){ $('#pwd-sheet').classList.remove('on'); });
+$('#pwd-sheet').addEventListener('click', function(e){ if (e.target === this) this.classList.remove('on'); });
+$('#pw-ok').addEventListener('click', function(){
+  var oldp = $('#pw-old').value, a = $('#pw-new').value, b = $('#pw-new2').value;
+  if (!oldp){ toast('请输入当前主密码'); return; }
+  if (a.length < 8){ toast('新主密码至少 8 位'); return; }
+  if (a !== b){ toast('两次输入的新主密码不一致'); return; }
+  if (a === oldp){ toast('新主密码不能与当前主密码相同'); return; }
+  $('#pwd-sheet').classList.remove('on');
+  $('#pw-old').value = ''; $('#pw-new').value = ''; $('#pw-new2').value = '';
+  toast('主密码已更新，正在重新加密全部凭证');
+});
+
+var pendingDel = null, pressTimer = null;
+$('#d-name').addEventListener('pointerdown', function(){
+  pressTimer = setTimeout(function(){
+    if (!state.current) return;
+    pendingDel = {kind:'item', ref:state.current};
+    $('#sh-title').textContent = '删除「' + state.current.name + '」？';
+    $('#sh-text').textContent = '删除后可在回收站保留 30 天，期间可恢复。';
+    $('#sh-ok').textContent = '删除';
+    $('#sheet').classList.add('on');
+  }, 500);
+});
+['pointerup','pointerleave','pointercancel'].forEach(function(ev){
+  $('#d-name').addEventListener(ev, function(){ clearTimeout(pressTimer); });
+});
+$('#sh-cancel').addEventListener('click', function(){ $('#sheet').classList.remove('on'); });
+$('#sh-ok').addEventListener('click', function(){
+  var p = pendingDel;
+  pendingDel = null;
+  $('#sheet').classList.remove('on');
+  if (!p) return;
+
+  if (p.kind === 'folder'){
+    var name = p.name;
+    var n = ITEMS.filter(function(x){ return x.folder === name; }).length;
+    ITEMS.forEach(function(x){ if (x.folder === name) x.folder = '未分类'; });
+    FOLDERS = FOLDERS.filter(function(f){ return f.name !== name; });
+    if (state.scope === name) state.scope = null;
+    if (state.formFolder === name) state.formFolder = FOLDERS[0] ? FOLDERS[0].name : '未分类';
+    renderFolders(); renderList();
+    toast(n ? ('已删除，' + n + ' 条移入「未分类」') : '文件夹已删除');
+    return;
+  }
+
+  if (p.ref) ITEMS = ITEMS.filter(function(x){ return x.id !== p.ref.id; });
+  renderFolders(); renderList();
+  show('s-list');
+  toast('已移入回收站');
+});
+
+var toastTimer;
+function toast(msg){
+  var t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove('on'); }, 1900);
+}
+function copy(text, msg){
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch(e){}
+  document.body.removeChild(ta);
+  toast(msg || '已复制');
+}
+
+/* ---------------- 登录 / 注册 ---------------- */
+function strengthOf(v){
+  if (!v) return ['', ''];
+  if (v.length < 8) return ['至少 8 位', '#A84A55'];
+  var kinds = /[a-z]/.test(v) + /[A-Z]/.test(v) + /\d/.test(v) + /[^a-zA-Z0-9]/.test(v);
+  if (v.length >= 12 && kinds >= 3) return ['强度：强', '#2E7D51'];
+  return ['强度：中', '#C9752F'];
+}
+function renderRegStrength(){
+  var r = strengthOf($('#rg-pwd').value);
+  $('#rg-strength').textContent = r[0];
+  $('#rg-strength').style.color = r[1];
+}
+$('#rg-pwd').addEventListener('input', renderRegStrength);
+
+function submitLogin(){
+  var email = $('#lg-email').value.trim();
+  var pwd = $('#lg-pwd').value;
+  if (!email || email.indexOf('@') === -1){ toast('请输入有效的邮箱地址'); $('#lg-email').focus(); return; }
+  if (!pwd){ toast('请输入主密码'); $('#lg-pwd').focus(); return; }
+  show('s-list');
+  toast('欢迎回来，' + email.split('@')[0]);
+}
+$('#lg-ok').addEventListener('click', submitLogin);
+$('#lg-email').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitLogin(); });
+$('#lg-pwd').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitLogin(); });
+
+function submitRegister(){
+  var email = $('#rg-email').value.trim();
+  var pwd = $('#rg-pwd').value;
+  if (!email || email.indexOf('@') === -1){ toast('请输入有效的邮箱地址'); $('#rg-email').focus(); return; }
+  /* 主密码是解锁凭证，校验从严 */
+  if (pwd.length < 8){ toast('主密码至少 8 位'); $('#rg-pwd').focus(); return; }
+  if (pwd !== $('#rg-pwd2').value){ toast('两次输入的主密码不一致'); $('#rg-pwd2').focus(); return; }
+  if (!$('#rg-ack').checked){ toast('请先确认你已了解主密码无法找回'); return; }
+  $('#lg-email').value = email;
+  show('s-list');
+  toast('保险库已创建，已自动登录');
+}
+$('#rg-ok').addEventListener('click', submitRegister);
+$('#rg-email').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitRegister(); });
+$('#rg-pwd2').addEventListener('keydown', function(e){ if (e.key === 'Enter') submitRegister(); });
+
+$('#go-reg').addEventListener('click', function(){
+  $('#rg-email').value = $('#lg-email').value;
+  $('#rg-pwd').value = ''; $('#rg-pwd2').value = '';
+  $('#rg-ack').checked = false;
+  renderRegStrength();
+  show('s-register');
+});
+$('#go-login').addEventListener('click', function(){
+  $('#lg-email').value = $('#rg-email').value;
+  $('#lg-pwd').value = '';
+  show('s-login');
+});
+
+/* ---------------- 个人信息 ---------------- */
+var ME = {name:'sylvie233', email:'sylvie233@icloud.com', color:'#125B4A', avatar:null};
+var prColor = ME.color;        // 编辑页预选的头像底色
+var prAvatarData = ME.avatar;  // 编辑页预览的自定义头像（dataURL）
+function initials(name){ var t = (name || '').trim(); return t ? t.slice(0, 2) : '—'; }
+function paintAvatar(el, data){
+  if (data){
+    el.innerHTML = '<img src="' + data + '" alt="" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit;" />';
+  } else {
+    el.innerHTML = esc(initials(ME.name));
+    el.style.background = ME.color;
+  }
+}
+function renderMe(){
+  paintAvatar($('#me-avatar'), ME.avatar);
+  $('#me-name').textContent = ME.name;
+}
+function renderPrSwatches(){
+  renderSwatches($('#pr-swatches'), prColor, function(c){
+    prColor = c;
+    $('#pr-avatar').style.background = prColor;
+    renderPrSwatches();
+  });
+}
+function renderPrState(){
+  var has = !!prAvatarData;
+  $('#pr-swatches').style.display = has ? 'none' : 'flex';
+  $('#pr-avatar-rm-w').style.display = has ? '' : 'none';
+}
+function setPrAvatar(data){
+  prAvatarData = data;
+  paintAvatar($('#pr-avatar'), prAvatarData);
+  renderPrState();
+}
+function openProfile(){
+  prColor = ME.color;
+  prAvatarData = ME.avatar;
+  $('#pr-name').value = ME.name;
+  $('#pr-email').value = ME.email;
+  paintAvatar($('#pr-avatar'), prAvatarData);
+  renderPrSwatches();
+  renderPrState();
+  show('s-profile');
+}
+$('#m-profile').addEventListener('click', openProfile);
+$('#me-head').addEventListener('click', openProfile);
+$('#pr-back').addEventListener('click', function(){ show('s-me'); });
+$('#pr-name').addEventListener('input', function(){
+  if (!prAvatarData) $('#pr-avatar').innerHTML = esc(initials(this.value));
+});
+$('#pr-avatar').addEventListener('click', function(){ $('#pr-file').click(); });
+$('#pr-file').addEventListener('change', function(){
+  var f = this.files && this.files[0];
+  this.value = '';
+  if (!f) return;
+  if (f.size > 3 * 1024 * 1024){ toast('图片请小于 3MB'); return; }
+  var rd = new FileReader();
+  rd.onload = function(){ setPrAvatar(rd.result); };
+  rd.readAsDataURL(f);
+});
+$('#pr-avatar-rm').addEventListener('click', function(){ setPrAvatar(null); toast('已移除自定义头像'); });
+$('#pr-save').addEventListener('click', saveProfile);
+$('#pr-name').addEventListener('keydown', function(e){ if (e.key === 'Enter') saveProfile(); });
+function saveProfile(){
+  var name = $('#pr-name').value.trim();
+  if (!name){ toast('昵称不能为空'); $('#pr-name').focus(); return; }
+  ME.name = name; ME.color = prColor; ME.avatar = prAvatarData;   /* 邮箱仅展示，不可修改 */
+  renderMe();
+  show('s-me');
+  toast('个人资料已更新');
+}
+
+renderFolders();
+renderList();
+</script>
+</body>
+</html>
