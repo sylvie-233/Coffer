@@ -1,26 +1,40 @@
 <#
 .SYNOPSIS
-    Coffer 本地环境运维脚本（MySQL + RustFS + API + Web）。
+    Coffer 本地环境运维脚本（容器服务 + Electron 桌面端 + Android 移动端）。
 
 .DESCRIPTION
     封装 scripts/docker-compose.yml 的常用操作：启动、停止、重启、重置、构建、日志、
     状态、进入 MySQL 客户端、重新执行初始化 SQL、拉取镜像。
 
+    同时提供桌面端（Electron）与移动端（Expo / Android）的常用命令：开发模式、
+    生成安装包、启动 Metro、编译安装、生成 APK、prebuild 与端口反向映射。
+
 .PARAMETER Action
     要执行的操作，默认 status：
-      up       启动目标服务并等待就绪（API / Web 会先重新构建镜像）
-      down     停止并移除全部容器（保留数据卷）
-      restart  重启目标服务并等待就绪
-      reset    删除数据卷后重新启动目标服务（会清空数据库与附件，需确认）
-      build    重新构建 API / Web 镜像
-      logs     查看目标服务日志
-      cli      进入 MySQL 命令行
-      status   查看容器状态与访问地址
-      init     重新执行 docs/sql/coffer-v1.sql（会 DROP 并重建业务表，需确认）
-      pull     拉取 MySQL / RustFS 镜像；API / Web 使用最新基础镜像重新构建
+      up                 启动目标服务并等待就绪（API / Web 会先重新构建镜像）
+      down               停止并移除全部容器（保留数据卷）
+      restart            重启目标服务并等待就绪
+      reset              删除数据卷后重新启动目标服务（会清空数据库与附件，需确认）
+      build              重新构建 API / Web 镜像
+      logs               查看目标服务日志
+      cli                进入 MySQL 命令行
+      status             查看容器状态与访问地址
+      init               重新执行 docs/sql/coffer-v1.sql（会 DROP 并重建业务表，需确认）
+      pull               拉取 MySQL / RustFS 镜像；API / Web 使用最新基础镜像重新构建
+      desktop:dev        Electron 开发模式（先构建 @coffer/vault 依赖）
+      desktop:make       生成 NSIS 安装包（apps/electron/out/make/）
+      mobile:start       启动 Metro（:8081）
+      mobile:android     编译并安装到已连接的 Android 设备
+      mobile:apk:debug   生成 debug APK
+      mobile:apk:release 生成 release APK
+      mobile:prebuild    重新生成 android/ 原生工程（expo prebuild --clean）
+      mobile:reverse     为模拟器映射 API(:3000) 与 Metro(:8081) 端口
+
+    desktop:* / mobile:* 不依赖 Docker，不使用 -Target 与 -NoWait；Gradle 构建的
+    完整日志会写入仓库根目录 logs/（已 gitignore）。
 
 .PARAMETER Target
-    操作目标，默认 all：
+    操作目标，默认 all（仅容器相关操作使用，desktop:* / mobile:* 忽略）：
       mysql   仅 MySQL
       rustfs  仅 RustFS 对象存储
       api     仅 API（compose 会自动启动其依赖的 MySQL 与 RustFS）
@@ -41,6 +55,11 @@
 
 .PARAMETER NoWait
     up / restart / reset 启动后不等待健康检查。
+
+.PARAMETER ApiBaseUrl
+    mobile:apk:debug / mobile:apk:release 构建时内联的 API 地址（EXPO_PUBLIC_API_BASE_URL）。
+    真机调试需填电脑的局域网地址（如 http://192.168.1.2:3000/api）；模拟器可省略，
+    配合 mobile:reverse 使用默认的 127.0.0.1 即可。
 
 .EXAMPLE
     pwsh ./manage.ps1 up
@@ -68,12 +87,35 @@
 
 .EXAMPLE
     pwsh ./manage.ps1 status -Target all
+
+.EXAMPLE
+    pwsh ./manage.ps1 desktop:dev
+
+.EXAMPLE
+    pwsh ./manage.ps1 desktop:make
+
+.EXAMPLE
+    pwsh ./manage.ps1 mobile:start
+
+.EXAMPLE
+    pwsh ./manage.ps1 mobile:android
+
+.EXAMPLE
+    pwsh ./manage.ps1 mobile:apk:release -ApiBaseUrl http://192.168.1.2:3000/api
+
+.EXAMPLE
+    pwsh ./manage.ps1 mobile:reverse
 #>
 #Requires -Version 7.0
 [CmdletBinding()]
 param(
     [Parameter(Position = 0)]
-    [ValidateSet('up', 'down', 'restart', 'reset', 'build', 'logs', 'cli', 'status', 'init', 'pull')]
+    [ValidateSet(
+        'up', 'down', 'restart', 'reset', 'build', 'logs', 'cli', 'status', 'init', 'pull',
+        'desktop:dev', 'desktop:make',
+        'mobile:start', 'mobile:android', 'mobile:apk:debug', 'mobile:apk:release',
+        'mobile:prebuild', 'mobile:reverse'
+    )]
     [string]$Action = 'status',
 
     [ValidateSet('mysql', 'rustfs', 'api', 'web', 'all')]
@@ -88,7 +130,9 @@ param(
     [ValidateRange(5, 600)]
     [int]$TimeoutSeconds = 90,
 
-    [switch]$NoWait
+    [switch]$NoWait,
+
+    [string]$ApiBaseUrl
 )
 
 Set-StrictMode -Version Latest
@@ -100,12 +144,21 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 $ScriptRoot = $PSScriptRoot
 $ComposeFile = Join-Path $ScriptRoot 'scripts/docker-compose.yml'
+$MonorepoRoot = Join-Path $ScriptRoot 'coffer-monorepo'
+$LogsDir = Join-Path $ScriptRoot 'logs'
 $ContainerNames = @{
     mysql  = 'coffer-mysql'
     rustfs = 'coffer-rustfs'
     api    = 'coffer-api'
     web    = 'coffer-web'
 }
+
+# 桌面端 / 移动端操作，不走 Docker 分支
+$AppActions = @(
+    'desktop:dev', 'desktop:make',
+    'mobile:start', 'mobile:android', 'mobile:apk:debug', 'mobile:apk:release',
+    'mobile:prebuild', 'mobile:reverse'
+)
 
 function Assert-Prerequisites {
     if (-not (Get-Command docker -ErrorAction SilentlyContinue)) {
@@ -131,6 +184,147 @@ function Invoke-Compose {
     & docker compose --file $ComposeFile @ComposeArgs
     if ($LASTEXITCODE -ne 0) {
         throw "docker compose $($ComposeArgs -join ' ') 执行失败（退出码 $LASTEXITCODE）。"
+    }
+}
+
+function Assert-NodePrerequisites {
+    if (-not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+        throw '未找到 pnpm 命令，请先安装 Node.js，并执行 corepack enable（或 npm install -g pnpm）。'
+    }
+
+    if (-not (Test-Path -LiteralPath (Join-Path $MonorepoRoot 'package.json'))) {
+        throw "未找到 monorepo 目录：$MonorepoRoot"
+    }
+}
+
+function Invoke-Pnpm {
+    param(
+        [Parameter(Mandatory)]
+        [string[]]$PnpmArgs,
+
+        # 指定后把完整输出（含 Gradle 进度）同步写入仓库根目录 logs/ 下的日志文件
+        [string]$LogName
+    )
+
+    Push-Location $MonorepoRoot
+    $previousPreference = $ErrorActionPreference
+    try {
+        # Gradle 会往 stderr 写大量进度信息，临时放宽避免被当成终止错误
+        $ErrorActionPreference = 'Continue'
+
+        if ($LogName) {
+            if (-not (Test-Path -LiteralPath $LogsDir)) {
+                New-Item -ItemType Directory -Path $LogsDir -Force | Out-Null
+            }
+            $logPath = Join-Path $LogsDir $LogName
+            Write-Host "完整日志：$logPath" -ForegroundColor DarkGray
+            & pnpm @PnpmArgs 2>&1 | Tee-Object -FilePath $logPath
+        }
+        else {
+            & pnpm @PnpmArgs
+        }
+
+        $exitCode = $LASTEXITCODE
+    }
+    finally {
+        $ErrorActionPreference = $previousPreference
+        Pop-Location
+    }
+
+    if ($exitCode -ne 0) {
+        throw "pnpm $($PnpmArgs -join ' ') 执行失败（退出码 $exitCode）。"
+    }
+}
+
+function Invoke-MobileBuild {
+    param(
+        [Parameter(Mandatory)]
+        [string]$PnpmScript,
+
+        [Parameter(Mandatory)]
+        [string]$LogName,
+
+        [Parameter(Mandatory)]
+        [string]$ApkPath
+    )
+
+    # EXPO_PUBLIC_* 会在 export:embed 阶段内联进 JS bundle，构建结束后恢复原值
+    $previousApiBaseUrl = $env:EXPO_PUBLIC_API_BASE_URL
+    try {
+        if ($ApiBaseUrl) {
+            $env:EXPO_PUBLIC_API_BASE_URL = $ApiBaseUrl
+            Write-Host "EXPO_PUBLIC_API_BASE_URL=$ApiBaseUrl" -ForegroundColor Cyan
+        }
+
+        Invoke-Pnpm -PnpmArgs @($PnpmScript) -LogName $LogName
+    }
+    finally {
+        $env:EXPO_PUBLIC_API_BASE_URL = $previousApiBaseUrl
+    }
+
+    Write-Host "APK 输出：$ApkPath" -ForegroundColor Green
+}
+
+function Invoke-AdbReverse {
+    if (-not (Get-Command adb -ErrorAction SilentlyContinue)) {
+        throw '未找到 adb 命令，请把 Android SDK 的 platform-tools 目录加入 PATH。'
+    }
+
+    & adb get-state *> $null
+    if ($LASTEXITCODE -ne 0) {
+        throw '未检测到已连接的 Android 设备或模拟器。'
+    }
+
+    foreach ($port in 3000, 8081) {
+        & adb reverse "tcp:$port" "tcp:$port"
+        if ($LASTEXITCODE -ne 0) {
+            throw "adb reverse tcp:$port 失败（退出码 $LASTEXITCODE）。"
+        }
+    }
+
+    Write-Host '已映射：API 127.0.0.1:3000、Metro 127.0.0.1:8081。' -ForegroundColor Green
+}
+
+function Invoke-AppAction {
+    Assert-NodePrerequisites
+
+    switch ($Action) {
+        'desktop:dev' {
+            Invoke-Pnpm -PnpmArgs @('desktop:dev')
+        }
+
+        'desktop:make' {
+            Invoke-Pnpm -PnpmArgs @('desktop:make')
+            Write-Host "安装包输出：$(Join-Path $MonorepoRoot 'apps/electron/out/make')" -ForegroundColor Green
+        }
+
+        'mobile:start' {
+            Write-Host '模拟器访问本机 API / Metro 前先执行：pwsh ./manage.ps1 mobile:reverse' -ForegroundColor DarkGray
+            Invoke-Pnpm -PnpmArgs @('mobile:start')
+        }
+
+        'mobile:android' {
+            Invoke-Pnpm -PnpmArgs @('mobile:android') -LogName 'gradle-rn-android.log'
+            Write-Host '若模拟器需访问本机 API，执行：pwsh ./manage.ps1 mobile:reverse' -ForegroundColor DarkGray
+        }
+
+        'mobile:apk:debug' {
+            Invoke-MobileBuild -PnpmScript 'mobile:apk:debug' -LogName 'gradle-rn-debug.log' `
+                -ApkPath (Join-Path $MonorepoRoot 'apps/rn/android/app/build/outputs/apk/debug/app-debug.apk')
+        }
+
+        'mobile:apk:release' {
+            Invoke-MobileBuild -PnpmScript 'mobile:apk:release' -LogName 'gradle-rn-release.log' `
+                -ApkPath (Join-Path $MonorepoRoot 'apps/rn/android/app/build/outputs/apk/release/app-release.apk')
+        }
+
+        'mobile:prebuild' {
+            Invoke-Pnpm -PnpmArgs @('--filter', '@coffer/rn', 'prebuild:android') -LogName 'expo-prebuild.log'
+        }
+
+        'mobile:reverse' {
+            Invoke-AdbReverse
+        }
     }
 }
 
@@ -270,6 +464,12 @@ function Assert-TargetIncludes {
     if ($services -notcontains $Service) {
         throw "$ActionName 需要目标包含 $Service，请使用 -Target $Service 或 -Target all。"
     }
+}
+
+# desktop:* / mobile:* 只依赖 Node 工具链，不需要 Docker
+if ($AppActions -contains $Action) {
+    Invoke-AppAction
+    exit 0
 }
 
 Assert-Prerequisites

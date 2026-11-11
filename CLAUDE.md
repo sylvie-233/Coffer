@@ -48,7 +48,11 @@ pnpm mobile:apk:debug           # apps/rn/android/app/build/outputs/apk/debug/ap
 ```powershell
 pwsh ./manage.ps1 up            # 全部服务；up -Target mysql 等可只起部分
 pwsh ./manage.ps1 status|logs|down|reset|init
+pwsh ./manage.ps1 desktop:dev|desktop:make
+pwsh ./manage.ps1 mobile:start|mobile:android|mobile:apk:debug|mobile:apk:release|mobile:prebuild|mobile:reverse
 ```
+
+`desktop:*` / `mobile:*` 不依赖 Docker；APK 构建可用 `-ApiBaseUrl http://<局域网IP>:3000/api` 内联 API 地址，Gradle 完整日志写入根目录 `logs/`。
 
 目前仓库**没有测试用例**，也没有任何包定义 `test` 脚本；不要假设存在单测命令。
 

@@ -7,8 +7,8 @@
     "start": "expo start",
     "android": "node scripts/setup-android-toolchain.mjs && expo run:android",
     "prebuild:android": "expo prebuild --platform android --clean && node scripts/setup-android-toolchain.mjs",
-    "apk:debug": "node scripts/setup-android-toolchain.mjs && cd android && gradlew.bat assembleDebug",
-    "apk:release": "node scripts/setup-android-toolchain.mjs && cd android && gradlew.bat assembleRelease",
+    "apk:debug": "node scripts/setup-android-toolchain.mjs && cd android && .\\gradlew.bat assembleDebug",
+    "apk:release": "node scripts/setup-android-toolchain.mjs && cd android && .\\gradlew.bat assembleRelease",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --max-warnings 0",
     "clean": "rimraf .expo android .turbo"
