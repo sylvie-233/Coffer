@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+@import '@coffer/ui/styles.css';
+
+/* Vite 将共享包打进渲染进程产物，Tailwind 仍需显式扫描这些产物中的 utility 类 */
+@source '../../../packages/ui/dist';
+@source '../../../packages/vault/dist';

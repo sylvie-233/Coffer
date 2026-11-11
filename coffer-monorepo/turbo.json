@@ -16,7 +16,8 @@
       "outputs": [
         "dist/**",
         "out/**",
-        ".next/**"
+        ".next/**",
+        ".vite/**"
       ]
     },
     "dev": {

@@ -13,8 +13,10 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test --filter=!electron --filter=!rn",
-    "clean": "turbo run clean"
+    "test": "turbo run test --filter=!@coffer/electron --filter=!rn",
+    "clean": "turbo run clean",
+    "desktop:dev": "pnpm --filter @coffer/vault... build && pnpm --filter @coffer/electron start",
+    "desktop:make": "pnpm --filter @coffer/vault... build && pnpm --filter @coffer/electron make"
   },
   "devDependencies": {
     "prettier": "^3.4.2",

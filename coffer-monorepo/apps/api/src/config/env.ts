@@ -34,7 +34,11 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(16, 'JWT_SECRET 长度至少 16 位'),
   JWT_EXPIRES_IN: z.coerce.number().int().positive().default(7200),
 
-  CORS_ORIGIN: z.string().default('http://localhost:3001,http://localhost:8080'),
+  CORS_ORIGIN: z
+    .string()
+    .default(
+      'http://localhost:3001,http://localhost:8080,http://localhost:5173,app://coffer',
+    ),
 
   S3_ENDPOINT: z.string().default('http://127.0.0.1:9000'),
   S3_REGION: z.string().default('us-east-1'),
