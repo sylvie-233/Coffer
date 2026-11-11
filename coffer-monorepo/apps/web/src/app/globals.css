@@ -1,0 +1,9 @@
+@import 'tailwindcss';
+
+/* 共享设计系统：主题令牌 + 组件样式，由 @coffer/ui 统一维护 */
+@import '@coffer/ui/styles.css';
+
+/* Tailwind 需要扫描 workspace 共享包中的 utility 类（Electron 等宿主也需要同样的声明） */
+@source '../../../../packages/ui/src';
+@source '../../../../packages/vault/src';
+@source '../../../../packages/vault-core/src';

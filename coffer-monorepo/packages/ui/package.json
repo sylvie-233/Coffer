@@ -1,0 +1,40 @@
+{
+  "name": "@coffer/ui",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Coffer 共享设计系统：Tailwind 主题、基础组件与轻提示",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./styles.css": "./src/styles.css"
+  },
+  "files": [
+    "dist",
+    "src/styles.css"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@coffer/utils": "workspace:*",
+    "lucide-react": "^0.469.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@coffer/tsconfig": "workspace:*",
+    "@types/react": "^19.0.7",
+    "react": "^19.0.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}

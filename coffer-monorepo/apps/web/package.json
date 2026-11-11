@@ -1,0 +1,31 @@
+{
+  "name": "@coffer/web",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Coffer 零知识凭证管理器 Web（Next.js）",
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf .next out .turbo"
+  },
+  "dependencies": {
+    "next": "^15.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "@coffer/ui": "workspace:*",
+    "@coffer/vault": "workspace:*"
+  },
+  "devDependencies": {
+    "@coffer/tsconfig": "workspace:*",
+    "@tailwindcss/postcss": "^4.3.5",
+    "@types/node": "^22.10.5",
+    "@types/react": "^19.0.7",
+    "@types/react-dom": "^19.0.3",
+    "postcss": "^8.5.32",
+    "rimraf": "^6.0.1",
+    "tailwindcss": "^4.3.5",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "name": "@coffer/vault-core",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Coffer 保险库业务内核：API 客户端、会话、加解密视图模型",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist .turbo"
+  },
+  "dependencies": {
+    "@coffer/crypto": "workspace:*",
+    "@coffer/types": "workspace:*"
+  },
+  "devDependencies": {
+    "@coffer/tsconfig": "workspace:*",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.3.5",
+    "typescript": "^5.7.3"
+  }
+}
