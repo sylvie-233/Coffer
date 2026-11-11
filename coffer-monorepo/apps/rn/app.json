@@ -8,11 +8,6 @@
     "scheme": "coffer",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FBF9F3"
-    },
     "android": {
       "package": "dev.coffer.mobile",
       "predictiveBackGestureEnabled": false,
@@ -24,10 +19,20 @@
     "plugins": [
       "expo-router",
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 96,
+          "resizeMode": "contain",
+          "backgroundColor": "#FBF9F3"
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": true,
+            "buildArchs": ["arm64-v8a", "x86_64"]
           }
         }
       ],

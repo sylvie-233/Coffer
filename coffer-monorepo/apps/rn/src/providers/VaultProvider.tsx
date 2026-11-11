@@ -128,6 +128,63 @@ async function decryptAttachmentView(
   };
 }
 
+/** 已覆盖到服务端的附件重加密记录，用于失败回滚。 */
+interface ReplacedAttachment {
+  attachId: number;
+  oldKeyVersion: number;
+  oldBytes: Uint8Array;
+  newBytes: Uint8Array;
+}
+
+type RekeyStatus =
+  | { state: 'committed'; profile: UserProfile }
+  | { state: 'foreign' }
+  | { state: 'stale' }
+  | { state: 'unknown' };
+
+/**
+ * rekey 响应丢失时，用 /auth/me 判断服务端是否其实已经提交。
+ * rekey 只失效 SRP 挑战会话，不会让当前 JWT 失效，因此这里仍可查询。
+ * 同时核对 encSalt：版本号一致但盐不同，说明是另一台设备抢先完成了改密。
+ */
+async function readRekeyStatus(
+  newVersion: number,
+  expectedEncSalt: string,
+): Promise<RekeyStatus> {
+  try {
+    const latest = await authApi.me();
+    if (latest.keyVersion !== newVersion) {
+      return { state: 'stale' };
+    }
+    return latest.encSalt === expectedEncSalt
+      ? { state: 'committed', profile: latest }
+      : { state: 'foreign' };
+  } catch {
+    return { state: 'unknown' };
+  }
+}
+
+/** 逆序回滚已覆盖的附件密文，返回回滚失败的附件 ID。 */
+async function rollbackAttachments(
+  replaced: ReplacedAttachment[],
+  onProgress: (message: string) => void,
+): Promise<number[]> {
+  if (replaced.length === 0) {
+    return [];
+  }
+  onProgress('重加密失败，正在回滚附件…');
+  const failed: number[] = [];
+  for (let index = replaced.length - 1; index >= 0; index -= 1) {
+    const upload = replaced[index]!;
+    try {
+      await attachmentApi.replaceContent(upload.attachId, upload.oldBytes, upload.oldKeyVersion);
+    } catch {
+      failed.push(upload.attachId);
+    }
+  }
+  return failed;
+}
+
 export interface VaultProviderProps {
   profile: UserProfile;
   onLock: () => void;
@@ -448,9 +505,9 @@ export function VaultProvider({
       }
       const kek = requiredKek();
       const { bytes, fileNameCipher } = await encryptAttachmentBytes(kek, image.name, plain);
-      let cipherUri: string | null = null;
+      const cipherFile = await writeTempBinary(bytes, 'attachment');
       try {
-        cipherUri = await writeTempBinary(bytes, 'attachment');
+        // Expo 的 fetch 只接受 Blob / 带 bytes() 的对象，不能传 RN 的 { uri } 描述。
         const dto = await attachmentApi.upload(
           itemId,
           {
@@ -458,11 +515,7 @@ export function VaultProvider({
             mimeType: image.mimeType || 'application/octet-stream',
             keyVersion: profile.keyVersion,
           },
-          {
-            uri: cipherUri,
-            name: 'attachment.bin',
-            type: 'application/octet-stream',
-          },
+          cipherFile as unknown as Blob,
         );
         const view = await decryptAttachmentView(kek, dto);
         applyItems((prev) =>
@@ -475,7 +528,7 @@ export function VaultProvider({
         toast('图片已加密上传');
         return view;
       } finally {
-        deleteTempFile(cipherUri);
+        deleteTempFile(cipherFile.uri);
       }
     },
     [applyItems, profile.keyVersion],
@@ -598,7 +651,10 @@ export function VaultProvider({
       const attachments = itemDtos.flatMap((dto) => dto.attachments);
       onProgress('正在重新加密图片附件…');
       const attachmentsRekey: RekeyAttachmentInput[] = [];
-      const attachmentUploads: Array<{ attachId: number; bytes: Uint8Array }> = [];
+      // 附件内容是按 keyVersion 单独覆盖上传的，不在 rekey 事务里。
+      // 这里必须保留旧密文：一旦后续步骤失败，新 KEK 会随函数退出被丢弃，
+      // 未回滚的附件将永久无法解密。
+      const attachmentUploads: ReplacedAttachment[] = [];
       for (const dto of attachments) {
         const fileName = await decryptText(oldKek, dto.fileNameCipher);
         const content = await attachmentApi.content(dto.attachId);
@@ -613,7 +669,9 @@ export function VaultProvider({
         });
         attachmentUploads.push({
           attachId: dto.attachId,
-          bytes: await encryptFile(newKek, plain),
+          oldKeyVersion: dto.keyVersion,
+          oldBytes: content,
+          newBytes: await encryptFile(newKek, plain),
         });
       }
 
@@ -630,22 +688,55 @@ export function VaultProvider({
         }
       }
 
-      onProgress('正在上传重新加密的附件…');
-      for (const upload of attachmentUploads) {
-        await attachmentApi.replaceContent(upload.attachId, upload.bytes, newVersion);
-      }
+      const replaced: ReplacedAttachment[] = [];
+      let result: UserProfile | null = null;
+      try {
+        onProgress('正在上传重新加密的附件…');
+        for (const upload of attachmentUploads) {
+          await attachmentApi.replaceContent(upload.attachId, upload.newBytes, newVersion);
+          replaced.push(upload);
+        }
 
-      onProgress('正在更新密钥材料…');
-      const result = await authApi.rekey({
-        authSalt: newKeys.authSalt,
-        authVerifier: newKeys.authVerifier,
-        encSalt: newKeys.encSalt,
-        keyVersion: newVersion,
-        keyCheckCipher: newCheck,
-        folders: foldersRekey,
-        items: itemsRekey,
-        attachments: attachmentsRekey,
-      });
+        onProgress('正在更新密钥材料…');
+        result = await authApi.rekey({
+          authSalt: newKeys.authSalt,
+          authVerifier: newKeys.authVerifier,
+          encSalt: newKeys.encSalt,
+          keyVersion: newVersion,
+          keyCheckCipher: newCheck,
+          folders: foldersRekey,
+          items: itemsRekey,
+          attachments: attachmentsRekey,
+        });
+      } catch (error) {
+        // rekey 是事务性的，但附件内容已经提前覆盖。失败时必须用旧密文回滚，
+        // 否则本地 newKek 丢失后，这些附件再也无法解密。
+        const status = await readRekeyStatus(newVersion, newKeys.encSalt);
+        if (status.state === 'committed') {
+          // 响应丢失但服务端已经提交：按成功处理，不能回滚新密文。
+          result = status.profile;
+        } else if (status.state === 'foreign') {
+          // 另一台设备已经用它自己的新密钥完成了改密，本地 newKek 与云端不一致。
+          throw new Error(
+            '云端密钥已被另一台设备更换，当前改密未生效。请重新登录后检查附件是否完整；' +
+              '如有异常请联系支持。',
+          );
+        } else {
+          const failed = await rollbackAttachments(replaced, onProgress);
+          if (failed.length > 0) {
+            const reason = error instanceof Error ? error.message : '未知错误';
+            throw new Error(
+              `重加密失败（${reason}），附件 ${failed.join('、')} 无法回滚，` +
+                '服务端与本地可能不一致。请勿删除应用数据或重复提交；' +
+                '先用新主密码尝试登录，若旧密码仍可登录请立即联系支持。',
+            );
+          }
+          throw error;
+        }
+      }
+      if (!result) {
+        throw new Error('重加密结果缺失，请重新登录后重试');
+      }
 
       setKek(newKek);
       clearAttachmentCache();

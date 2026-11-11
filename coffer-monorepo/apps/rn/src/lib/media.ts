@@ -78,14 +78,20 @@ export async function writeTempImage(
   return file.uri;
 }
 
-/** 把密文写入临时文件，供 RN FormData 上传使用。 */
-export async function writeTempBinary(bytes: Uint8Array, name: string): Promise<string> {
+/**
+ * 把密文写入临时文件并返回 File 实例。
+ *
+ * Expo SDK 58 的 fetch 会把 FormData 自行序列化成 multipart，只认 Blob 或带 `bytes()`
+ * 的对象；RN 传统的 `{ uri, name, type }` 描述会抛 "Unsupported FormDataPart"。
+ * expo-file-system 的 File 实现了 Blob 接口，正好满足要求。
+ */
+export async function writeTempBinary(bytes: Uint8Array, name: string): Promise<File> {
   const file = new File(Paths.cache, `coffer-${name}-${Date.now()}.bin`);
   if (!file.exists) {
     file.create({ intermediates: true });
   }
   await file.write(bytes);
-  return file.uri;
+  return file;
 }
 
 export function deleteTempFile(uri: string | null | undefined): void {
