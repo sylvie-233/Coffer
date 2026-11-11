@@ -245,9 +245,18 @@ export async function encryptAttachment(
   file: File,
 ): Promise<{ bytes: Uint8Array; fileNameCipher: string }> {
   const plain = new Uint8Array(await file.arrayBuffer());
+  return encryptAttachmentBytes(kek, file.name, plain);
+}
+
+/** 已拿到文件字节的宿主（如 React Native）可直接加密，不必构造 File。 */
+export async function encryptAttachmentBytes(
+  kek: CryptoKey,
+  fileName: string,
+  plain: Uint8Array,
+): Promise<{ bytes: Uint8Array; fileNameCipher: string }> {
   const [bytes, fileNameCipher] = await Promise.all([
     encryptFile(kek, plain),
-    encryptText(kek, file.name || '图片附件'),
+    encryptText(kek, fileName || '图片附件'),
   ]);
   return { bytes, fileNameCipher };
 }

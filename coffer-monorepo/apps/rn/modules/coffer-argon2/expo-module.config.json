@@ -1,0 +1,6 @@
+{
+  "platforms": ["android"],
+  "android": {
+    "modules": ["coffer.argon2.CofferArgon2Module"]
+  }
+}

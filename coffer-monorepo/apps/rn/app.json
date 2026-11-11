@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Coffer",
+    "slug": "coffer",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "coffer",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FBF9F3"
+    },
+    "android": {
+      "package": "dev.coffer.mobile",
+      "predictiveBackGestureEnabled": false,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#125B4A"
+      }
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许 Coffer 从相册选择图片，图片会在本地加密后上传。"
+        }
+      ],
+      "./plugins/withAndroidLocalRepos"
+    ]
+  }
+}

@@ -1,13 +1,52 @@
 {
-  "name": "rn",
+  "name": "@coffer/rn",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
+  "main": "index.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "expo start",
+    "android": "node scripts/setup-android-toolchain.mjs && expo run:android",
+    "prebuild:android": "expo prebuild --platform android --clean && node scripts/setup-android-toolchain.mjs",
+    "apk:debug": "node scripts/setup-android-toolchain.mjs && cd android && gradlew.bat assembleDebug",
+    "apk:release": "node scripts/setup-android-toolchain.mjs && cd android && gradlew.bat assembleRelease",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "clean": "rimraf .expo android .turbo"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "packageManager": "pnpm@10.32.1"
+  "dependencies": {
+    "@coffer/crypto": "workspace:*",
+    "@coffer/types": "workspace:*",
+    "@coffer/utils": "workspace:*",
+    "@coffer/vault-core": "workspace:*",
+    "@expo/metro-runtime": "~58.0.17",
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
+    "expo": "~58.0.23",
+    "expo-build-properties": "~58.0.12",
+    "expo-clipboard": "~58.0.4",
+    "expo-constants": "~58.0.15",
+    "expo-crypto": "~58.0.7",
+    "expo-file-system": "~58.0.13",
+    "expo-image-picker": "~58.0.10",
+    "expo-linking": "~58.0.16",
+    "expo-modules-core": "~58.0.30",
+    "expo-router": "~58.0.30",
+    "expo-status-bar": "~58.0.4",
+    "expo-system-ui": "~58.0.7",
+    "lucide-react-native": "^1.72.0",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-screens": "~4.30.1",
+    "react-native-svg": "15.16.0"
+  },
+  "devDependencies": {
+    "@coffer/eslint-config": "workspace:*",
+    "@expo/config-plugins": "~58.0.12",
+    "@types/react": "~19.3.0",
+    "babel-preset-expo": "~58.0.24",
+    "eslint": "^9.18.0",
+    "rimraf": "^6.0.1",
+    "typescript": "~6.0.3"
+  }
 }

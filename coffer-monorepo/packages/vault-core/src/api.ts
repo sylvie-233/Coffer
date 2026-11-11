@@ -34,9 +34,15 @@ export class ApiError extends Error {
  */
 let apiBaseUrl = '/api';
 
-export function configureApi(options: { baseUrl?: string }): void {
+/** 单次请求超时。React Native 在目标不可达时不会自己失败，需要主动中止。 */
+let requestTimeoutMs = 20_000;
+
+export function configureApi(options: { baseUrl?: string; timeoutMs?: number }): void {
   if (options.baseUrl) {
     apiBaseUrl = options.baseUrl.replace(/\/+$/, '');
+  }
+  if (typeof options.timeoutMs === 'number' && options.timeoutMs > 0) {
+    requestTimeoutMs = options.timeoutMs;
   }
 }
 
@@ -66,25 +72,67 @@ async function parseError(response: Response): Promise<ApiError> {
   return new ApiError(response.status, message);
 }
 
+/**
+ * 给请求挂上超时。调用方自带 signal 时不再覆盖，由调用方管理取消。
+ */
+function timedFetchInit(init: RequestInit): {
+  init: RequestInit;
+  dispose: () => void;
+  timedOut: () => boolean;
+} {
+  if (typeof AbortController === 'undefined' || init.signal) {
+    return { init, dispose: () => {}, timedOut: () => false };
+  }
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, requestTimeoutMs);
+  return {
+    init: { ...init, signal: controller.signal },
+    dispose: () => clearTimeout(timer),
+    timedOut: () => timedOut,
+  };
+}
+
+function timeoutError(): ApiError {
+  const seconds = Math.round(requestTimeoutMs / 1000);
+  return new ApiError(0, `请求超时（${seconds} 秒），请检查网络或服务是否可用`);
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   // 仅字符串请求体按 JSON 发送；FormData / 二进制必须让浏览器自行生成 Content-Type
   const headers = authHeaders(
     typeof init.body === 'string' ? { 'Content-Type': 'application/json' } : {},
   );
-  const response = await fetch(apiUrl(path), {
-    ...init,
-    headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },
-  });
+  const timed = timedFetchInit(init);
+  try {
+    const response = await fetch(apiUrl(path), {
+      ...timed.init,
+      headers: { ...headers, ...(init.headers as Record<string, string> | undefined) },
+    });
 
-  if (!response.ok) {
-    throw await parseError(response);
-  }
+    if (!response.ok) {
+      throw await parseError(response);
+    }
 
-  const payload = (await response.json()) as ApiResponse<T>;
-  if (!payload || payload.code !== 200) {
-    throw new ApiError(payload?.code ?? response.status, payload?.message ?? '请求失败');
+    const payload = (await response.json()) as ApiResponse<T>;
+    if (!payload || payload.code !== 200) {
+      throw new ApiError(payload?.code ?? response.status, payload?.message ?? '请求失败');
+    }
+    return payload.data;
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    if (timed.timedOut()) {
+      throw timeoutError();
+    }
+    throw error;
+  } finally {
+    timed.dispose();
   }
-  return payload.data;
 }
 
 async function requestBinary(
@@ -92,29 +140,54 @@ async function requestBinary(
   init: RequestInit = {},
   allowNotFound = false,
 ): Promise<Uint8Array | null> {
-  const response = await fetch(apiUrl(path), {
-    ...init,
-    headers: authHeaders(init.headers as Record<string, string> | undefined),
-  });
-  if (allowNotFound && response.status === 404) {
-    return null;
+  const timed = timedFetchInit(init);
+  try {
+    const response = await fetch(apiUrl(path), {
+      ...timed.init,
+      headers: authHeaders(init.headers as Record<string, string> | undefined),
+    });
+    if (allowNotFound && response.status === 404) {
+      return null;
+    }
+    if (!response.ok) {
+      throw await parseError(response);
+    }
+    return new Uint8Array(await response.arrayBuffer());
+  } catch (error) {
+    if (error instanceof ApiError) {
+      throw error;
+    }
+    if (timed.timedOut()) {
+      throw timeoutError();
+    }
+    throw error;
+  } finally {
+    timed.dispose();
   }
-  if (!response.ok) {
-    throw await parseError(response);
-  }
-  return new Uint8Array(await response.arrayBuffer());
 }
 
 function queryString(params: Record<string, string | number | boolean | undefined>): string {
-  const search = new URLSearchParams();
+  // 不依赖 URLSearchParams：React Native 运行时并不保证提供该实现。
+  const parts: string[] = [];
   for (const [key, value] of Object.entries(params)) {
     if (value === undefined || value === '') {
       continue;
     }
-    search.set(key, typeof value === 'boolean' ? (value ? '1' : '0') : String(value));
+    const text = typeof value === 'boolean' ? (value ? '1' : '0') : String(value);
+    parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(text)}`);
   }
-  const text = search.toString();
-  return text ? `?${text}` : '';
+  return parts.length ? `?${parts.join('&')}` : '';
+}
+
+/** React Native FormData 只接受 { uri, name, type } 形式的文件描述。 */
+export interface UploadFilePart {
+  uri: string;
+  name: string;
+  type: string;
+}
+
+function isUploadFilePart(value: unknown): value is UploadFilePart {
+  return typeof value === 'object' && value !== null && 'uri' in value;
 }
 
 /* ============================ 认证 ============================ */
@@ -163,7 +236,7 @@ export const userApi = {
     });
   },
 
-  uploadAvatar(bytes: Uint8Array): Promise<UserProfile> {
+  uploadAvatar(bytes: Uint8Array | Blob): Promise<UserProfile> {
     return request<UserProfile>('/users/me/avatar', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/octet-stream' },
@@ -256,17 +329,18 @@ export const attachmentApi = {
   upload(
     itemId: number,
     input: { fileNameCipher: string; mimeType: string; keyVersion: number },
-    bytes: Uint8Array,
+    source: Uint8Array | Blob | UploadFilePart,
   ): Promise<AttachmentDto> {
     const form = new FormData();
     form.append('fileNameCipher', input.fileNameCipher);
     form.append('mimeType', input.mimeType);
     form.append('keyVersion', String(input.keyVersion));
-    form.append(
-      'file',
-      new Blob([bytes as unknown as BlobPart], { type: 'application/octet-stream' }),
-      'attachment.bin',
-    );
+    const filePart = isUploadFilePart(source)
+      ? source
+      : source instanceof Uint8Array
+        ? new Blob([source as unknown as BlobPart], { type: 'application/octet-stream' })
+        : source;
+    form.append('file', filePart as unknown as Blob, 'attachment.bin');
     return request<AttachmentDto>(`/items/${itemId}/attachments`, {
       method: 'POST',
       body: form,
@@ -277,7 +351,7 @@ export const attachmentApi = {
     return requestBinary(`/attachments/${attachId}/content`, {}, true);
   },
 
-  replaceContent(attachId: number, bytes: Uint8Array, keyVersion: number): Promise<null> {
+  replaceContent(attachId: number, bytes: Uint8Array | Blob, keyVersion: number): Promise<null> {
     return request<null>(`/attachments/${attachId}/content?keyVersion=${keyVersion}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/octet-stream' },

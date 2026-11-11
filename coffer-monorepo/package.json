@@ -2,7 +2,7 @@
   "name": "coffer-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "Coffer · 零知识个人凭证管理器（Web + API）",
+  "description": "Coffer · 零知识个人凭证管理器（Web + API + RN）",
   "license": "MIT",
   "packageManager": "pnpm@10.32.1",
   "engines": {
@@ -14,10 +14,14 @@
     "build": "turbo run build",
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
-    "test": "turbo run test --filter=!@coffer/electron --filter=!rn",
+    "test": "turbo run test --filter=!@coffer/electron --filter=!@coffer/rn",
     "clean": "turbo run clean",
     "desktop:dev": "pnpm --filter @coffer/vault... build && pnpm --filter @coffer/electron start",
-    "desktop:make": "pnpm --filter @coffer/vault... build && pnpm --filter @coffer/electron make"
+    "desktop:make": "pnpm --filter @coffer/vault... build && pnpm --filter @coffer/electron make",
+    "mobile:start": "pnpm --filter @coffer/rn start",
+    "mobile:android": "pnpm --filter @coffer/rn android",
+    "mobile:apk:debug": "pnpm --filter @coffer/rn apk:debug",
+    "mobile:apk:release": "pnpm --filter @coffer/rn apk:release"
   },
   "devDependencies": {
     "prettier": "^3.4.2",
