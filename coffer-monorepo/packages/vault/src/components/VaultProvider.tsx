@@ -224,7 +224,7 @@ export function VaultProvider({ profile: initialProfile, onLock, onLogout, child
     } finally {
       setLoading(false);
     }
-  }, [applyItems, applyProfile, onLogout, revokeAttachmentUrls]);
+  }, [applyItems, applyProfile, onLogout]);
 
   useEffect(() => {
     void refresh();

@@ -30,7 +30,7 @@
 - **桌面端**：Electron Forge 8、Vite、React，NSIS 安装包
 - **后端**：Node.js、Hono、Zod、MySQL 8、RustFS（S3 兼容）
 - **共享包**：`@coffer/crypto`、`@coffer/db`、`@coffer/types`、`@coffer/utils`、`@coffer/ui`、`@coffer/vault-core`、`@coffer/vault`
-- **工程**：pnpm workspace + Turborepo，Docker Compose 部署
+- **工程**：pnpm workspace + Turborepo + ESLint，Docker Compose 部署
 
 ## 快速开始
 
@@ -54,6 +54,7 @@ docker compose -f scripts/docker-compose.yml up -d rustfs
 cd coffer-monorepo
 pnpm install
 pnpm build          # 构建共享包
+pnpm lint           # ESLint 检查全部应用与共享包
 pnpm dev            # API :3000 + Web :3001
 ```
 

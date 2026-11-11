@@ -9,7 +9,8 @@
     "build": "tsup src/main.ts --format esm --dts --clean --target node20",
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist .turbo"
+    "clean": "rimraf dist .turbo",
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",
@@ -24,8 +25,10 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@coffer/eslint-config": "workspace:*",
     "@coffer/tsconfig": "workspace:*",
     "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.3.5",
     "tsx": "^4.19.2",

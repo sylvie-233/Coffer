@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { z } from 'zod';
+import type { z } from 'zod';
 
 import { HttpError } from './http.js';
 

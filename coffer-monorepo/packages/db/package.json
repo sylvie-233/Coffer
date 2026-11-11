@@ -16,15 +16,18 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts --clean",
     "typecheck": "tsc --noEmit",
-    "clean": "rimraf dist .turbo"
+    "clean": "rimraf dist .turbo",
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "drizzle-orm": "^0.45.4",
     "mysql2": "^3.24.6"
   },
   "devDependencies": {
+    "@coffer/eslint-config": "workspace:*",
     "@coffer/tsconfig": "workspace:*",
     "@types/node": "^22.10.5",
+    "eslint": "^9.18.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.3.5",
     "typescript": "^5.7.3"
