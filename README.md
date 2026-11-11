@@ -13,6 +13,7 @@
 - **二次验证**：查看敏感字段需重新输入主密码，解锁仅对当前条目生效。
 - **主密码轮换**：修改主密码时全库重加密，旧密钥版本自动作废。
 - **多端复用**：Web 与 Electron 共用 `@coffer/vault` 页面与组件；桌面端提供可自选目录的 NSIS 安装包。
+- **Android 客户端**：Expo / React Native 独立界面，复用加密与 API 层；Argon2id 走原生实现，解锁只需秒级。
 
 ## 页面预览
 
@@ -28,6 +29,7 @@
 
 - **前端**：Next.js 15（静态导出）、React 19、Tailwind CSS v4
 - **桌面端**：Electron Forge 8、Vite、React，NSIS 安装包
+- **移动端**：Expo SDK 58、React Native 0.88（Hermes、新架构）、expo-router，仅 Android
 - **后端**：Node.js、Hono、Zod、MySQL 8、RustFS（S3 兼容）
 - **共享包**：`@coffer/crypto`、`@coffer/db`、`@coffer/types`、`@coffer/utils`、`@coffer/ui`、`@coffer/vault-core`、`@coffer/vault`
 - **工程**：pnpm workspace + Turborepo + ESLint，Docker Compose 部署
@@ -69,6 +71,50 @@ pnpm desktop:make                       # 生成 NSIS 安装包
 
 安装包支持自选安装目录、桌面与开始菜单快捷方式；当前未签名，SmartScreen 会提示。
 
+## 移动端（Android）
+
+`apps/rn` 是基于 Expo SDK 58 / React Native 0.88 的 Android 客户端，只复用 `@coffer/crypto`、`@coffer/types`、`@coffer/utils`、`@coffer/vault-core`，界面在 `src/features` 中按移动端交互单独实现。
+
+| 登录 | 保险库 |
+| --- | --- |
+| ![移动端登录](docs/screenshots/mobile-login.png) | ![移动端保险库](docs/screenshots/mobile-vault.png) |
+
+| 凭证详情 | 新建凭证 |
+| --- | --- |
+| ![移动端详情](docs/screenshots/mobile-detail.png) | ![移动端新建](docs/screenshots/mobile-form.png) |
+
+开发与打包：
+
+```bash
+cd coffer-monorepo
+pnpm install
+pnpm mobile:start                  # 启动 Metro（:8081）
+pnpm mobile:android                # 编译并安装到已连接的设备
+pnpm mobile:apk:debug              # 生成 debug APK
+pnpm mobile:apk:release            # 生成 release APK
+```
+
+模拟器访问本机服务需要端口反向映射（LDPlayer 不映射 `10.0.2.2`；Metro 也要映射，否则热更新连不上）：
+
+```bash
+adb reverse tcp:3000 tcp:3000      # API
+adb reverse tcp:8081 tcp:8081      # Metro
+```
+
+真机调试时，默认的 `http://127.0.0.1:3000/api` 访问不到电脑，需要在打包时通过 `EXPO_PUBLIC_API_BASE_URL` 内联局域网地址：
+
+```bash
+EXPO_PUBLIC_API_BASE_URL=http://192.168.1.2:3000/api pnpm mobile:apk:release
+```
+
+注意事项：
+
+- **原生 Argon2id**：Hermes 跑纯 JS Argon2 需要 1～2 分钟，`modules/coffer-argon2` 用 BouncyCastle 提供原生实现，解锁为秒级；修改该模块后必须重新编译安装 APK。
+- **JDK**：需要标准 OpenJDK 17。GraalVM 的 jlink 会让 AGP 的 `JdkImageTransform` 失败。
+- **原生工程**：`android/` 由 `expo prebuild` 生成，不纳入版本管理；改动原生配置后执行 `pnpm --filter @coffer/rn prebuild:android`（会重建工具链配置）。
+- **release 签名**：当前 release 包沿用 debug keystore，仅用于真机试用，不能用于分发；正式发布需在 `android/app/build.gradle` 配置自己的 keystore。
+- **无本地副本**：移动端不缓存任何离线数据，会话只存在内存中，关闭应用后需要重新登录。
+
 ## 目录结构
 
 ```text
@@ -77,6 +123,7 @@ Coffer/
 │   ├── apps/
 │   │   ├── api/          # Hono API：routes / controllers / services / sql
 │   │   ├── electron/     # Electron 主进程、preload 与渲染入口
+│   │   ├── rn/           # Expo Android 客户端（src/features 为业务界面，modules 为原生模块）
 │   │   └── web/          # Next.js 应用壳与静态资源
 │   └── packages/         # crypto、db、types、utils、ui、vault-core、vault
 ├── docs/                 # 设计文档、SQL、PC/移动端原型与截图
