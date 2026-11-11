@@ -1,0 +1,21 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'coffer.argon2'
+version = '1.0.0'
+
+android {
+  namespace 'coffer.argon2'
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // 仅使用 org.bouncycastle 的 Argon2 实现；Android 自带的 BC 在 com.android.org.bouncycastle，
+  // 包名不同，不会冲突。
+  implementation 'org.bouncycastle:bcprov-jdk18on:1.85.2'
+}

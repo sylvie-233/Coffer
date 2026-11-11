@@ -5,7 +5,13 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-RUN npm install -g pnpm@10.32.1 --no-fund --no-audit
+# 国内 npm 镜像；需要私有源时可用 --build-arg NPM_REGISTRY=... 覆盖
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+# npm 自身与 pnpm 安装都走镜像
+RUN npm config set registry "$NPM_REGISTRY" \
+ && npm install -g pnpm@10.32.1 --no-fund --no-audit \
+ && pnpm config set registry "$NPM_REGISTRY"
 
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./
 COPY apps/api/package.json apps/api/package.json

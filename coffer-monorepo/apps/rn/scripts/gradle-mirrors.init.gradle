@@ -1,0 +1,53 @@
+// Coffer Android 构建的 Maven 镜像（Gradle init 脚本）。
+//
+// 由 setup-android-toolchain.mjs 安装到 $GRADLE_USER_HOME/init.d/coffer-gradle-mirrors.gradle，
+// 每次 Gradle 启动时自动生效，不需要在 android/ 目录里手工修改。
+//
+// 为什么项目级的 withAndroidLocalRepos 插件不够：
+// settings.gradle 里的 includeBuild(react-native-gradle-plugin / expo-gradle-plugin) 是
+// 独立的 composite build，它们只使用自己 settings.gradle.kts 里声明的 mavenCentral()/google()，
+// 不会继承主工程的仓库配置。init 脚本会作用于构建树里的每一个 build，因此能覆盖这部分下载。
+//
+// 只对 coffer-monorepo 下的构建生效，不会影响本机其它 Gradle 工程。
+
+def MIRROR_URLS = [
+  'https://maven.aliyun.com/repository/google',
+  'https://maven.aliyun.com/repository/public',
+  'https://maven.aliyun.com/repository/gradle-plugin',
+  'https://mirrors.cloud.tencent.com/nexus/repository/maven-public/',
+  'https://repo.huaweicloud.com/repository/maven/',
+]
+
+def inCofferWorkspace = { File dir ->
+  dir != null &&
+    dir.absolutePath.replace('\\', '/').toLowerCase().contains('/coffer-monorepo/')
+}
+
+def addMirrors = { repositories ->
+  MIRROR_URLS.each { String mirrorUrl ->
+    repositories.maven { url = mirrorUrl }
+  }
+}
+
+// pluginManagement / dependencyResolutionManagement 在 settings 评估前注入，
+// 保证排在 includeBuild 自带的 mavenCentral()/google() 之前。
+beforeSettings { settings ->
+  if (!inCofferWorkspace(settings.settingsDir)) {
+    return
+  }
+  addMirrors(settings.pluginManagement.repositories)
+  addMirrors(settings.dependencyResolutionManagement.repositories)
+}
+
+// 普通依赖（com.google.guava、kotlin-build-tools 等）按项目仓库解析；
+// beforeProject 早于 build 脚本执行，注入后同样排在 mavenCentral() 之前。
+gradle.beforeProject { project ->
+  if (!inCofferWorkspace(project.rootDir)) {
+    return
+  }
+  def mode = project.gradle.settings.dependencyResolutionManagement.repositoriesMode.getOrNull()
+  if (mode == null || mode.toString() != 'FAIL_ON_PROJECT_REPOS') {
+    addMirrors(project.repositories)
+  }
+  addMirrors(project.buildscript.repositories)
+}

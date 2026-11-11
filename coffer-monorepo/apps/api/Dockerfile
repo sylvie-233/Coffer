@@ -5,8 +5,13 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
-# 与 package.json 的 packageManager 保持一致
-RUN npm install -g pnpm@10.32.1 --no-fund --no-audit
+# 国内 npm 镜像；需要私有源时可用 --build-arg NPM_REGISTRY=... 覆盖
+ARG NPM_REGISTRY=https://registry.npmmirror.com
+
+# 与 package.json 的 packageManager 保持一致；npm 自身与 pnpm 安装都走镜像
+RUN npm config set registry "$NPM_REGISTRY" \
+ && npm install -g pnpm@10.32.1 --no-fund --no-audit \
+ && pnpm config set registry "$NPM_REGISTRY"
 
 # 先复制全部 workspace 的 manifest，最大化利用 Docker 层缓存
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json turbo.json ./

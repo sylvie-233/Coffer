@@ -13,6 +13,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,6 +22,10 @@ const androidDir = path.join(appRoot, 'android');
 const toolchainDir = path.join(appRoot, '.android-cmake');
 const localPropertiesPath = path.join(androidDir, 'local.properties');
 const CMAKE_SHARE_DIR = 'cmake-3.22';
+const gradleUserHome = process.env.GRADLE_USER_HOME
+  ? path.resolve(process.env.GRADLE_USER_HOME)
+  : path.join(os.homedir(), '.gradle');
+const mirrorsInitSource = path.join(appRoot, 'scripts', 'gradle-mirrors.init.gradle');
 
 function fail(message) {
   console.error(`[setup-android-toolchain] ${message}`);
@@ -162,7 +167,32 @@ function filesEqual(left, right) {
   }
 }
 
+/**
+ * 把镜像 init 脚本安装到 $GRADLE_USER_HOME/init.d/。
+ * includeBuild 引入的 RN / Expo Gradle 插件属于独立构建，项目级仓库配置覆盖不到，
+ * 只能靠 init 脚本统一前置镜像。内容没变时不重写，避免无谓改动。
+ */
+function installGradleMirrors() {
+  if (process.env.COFFER_SKIP_GRADLE_MIRRORS === '1') {
+    console.log('[setup-android-toolchain] COFFER_SKIP_GRADLE_MIRRORS=1，跳过镜像 init 脚本安装');
+    return;
+  }
+
+  const contents = fs.readFileSync(mirrorsInitSource, 'utf8');
+  const targetDir = path.join(gradleUserHome, 'init.d');
+  const target = path.join(targetDir, 'coffer-gradle-mirrors.gradle');
+  if (fs.existsSync(target) && fs.readFileSync(target, 'utf8') === contents) {
+    return;
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true });
+  fs.writeFileSync(target, contents, 'utf8');
+  console.log(`[setup-android-toolchain] 已安装 Gradle 镜像 init 脚本 -> ${target}`);
+}
+
 function main() {
+  installGradleMirrors();
+
   if (!fs.existsSync(androidDir)) {
     fail('未找到 android/ 目录，请先运行 `pnpm --filter @coffer/rn prebuild:android`。');
   }
